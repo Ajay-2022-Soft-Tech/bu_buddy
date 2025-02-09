@@ -61,7 +61,12 @@ class TTexts {
 
   static const String changeYourPasswordSubTitle = "Your Account Security is Our Priority! We’ve Sent You a Secure Link to Safely Change Your Password and Keep Your Account Protected.";
 
+
   static const String done = "Done";
 
+//  -- Carpool HomeScreen
+
+  static const String publishRide = "Publish a ride";
+  static const String findRide = "Find a ride";
 
 }

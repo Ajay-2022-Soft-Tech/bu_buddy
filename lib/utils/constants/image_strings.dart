@@ -23,6 +23,7 @@ class TImages {
   static const String verifyIllustration = "assets/images/animations/Fast_Shopping_Delivery.gif";
 
   // -- Category Icons
+
   static const String sportIcon = 'assets/icons/categories/icons8-bowling-64.png';
   static const String clothIcon = 'assets/icons/categories/icons8-tailors-dummy-64.png';
   static const String shoeIcon = 'assets/icons/categories/icons8-shoes-64.png';
