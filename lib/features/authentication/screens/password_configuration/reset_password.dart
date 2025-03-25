@@ -3,15 +3,19 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:get/get_core/src/get_main.dart';
 
 import '../../../../utils/constants/image_strings.dart';
 import '../../../../utils/constants/sizes.dart';
 import '../../../../utils/constants/texts.dart';
 import '../../../../utils/helpers/helper_functions.dart';
+import '../../controllers/forget_password/forget_password_controller.dart';
+import '../login/login.dart';
 
-class ResetPassword extends StatelessWidget {
-  const ResetPassword({super.key});
+class ResetPasswordScreen extends StatelessWidget {
+  const ResetPasswordScreen({super.key, required this.email});
+
+  final String email;
+
 
   @override
   Widget build(BuildContext context) {
@@ -31,7 +35,7 @@ class ResetPassword extends StatelessWidget {
 
               // Title & Subtitle
               Text(
-                TTexts.changeYourPasswordTitle,
+                email,
                 style: Theme.of(context).textTheme.headlineMedium,
                 textAlign: TextAlign.center,
               ),
@@ -43,17 +47,24 @@ class ResetPassword extends StatelessWidget {
               ),
               SizedBox(height: TSizes.spaceBtwSections),
 
-              // Buttons
               SizedBox(
                 width: double.infinity,
-                child: ElevatedButton(onPressed: () {}, child:  Text(TTexts.done)),
-              ),
-              SizedBox(height: TSizes.spaceBtwItems),
+                child: ElevatedButton(
+                  onPressed: () => Get.offAll(() => const LoginScreen()),
+                  child: const Text(TTexts.done),
+                ),
+              ), // SizedBox
+
+              const SizedBox(height: TSizes.spaceBtwItems),
+
               SizedBox(
                 width: double.infinity,
-                child: TextButton(onPressed: () {}, child: const Text(TTexts.resendEmail)),
-              ),
-               SizedBox(height: TSizes.spaceBtwItems),
+                child: TextButton(
+                  onPressed: () => ForgetPasswordController.instance.resendPasswordResetEmail(email), // Passing email here
+                  child: const Text(TTexts.resendEmail),
+                ),
+              ), // SizedBox
+
             ],
           ),
         ),

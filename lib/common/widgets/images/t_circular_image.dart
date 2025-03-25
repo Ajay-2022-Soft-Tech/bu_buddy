@@ -5,7 +5,7 @@ import '../../../utils/constants/sizes.dart';
 import '../../../utils/helpers/helper_functions.dart';
 
 class TCircularImage extends StatelessWidget {
-  TCircularImage({
+  const TCircularImage({
     super.key,
     this.width = 56,
     this.height = 56,

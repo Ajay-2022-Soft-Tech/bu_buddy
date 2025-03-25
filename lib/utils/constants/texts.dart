@@ -51,6 +51,8 @@ class TTexts {
   static const String loginTitle = "Welcome back,";
   static const String loginSubTitle= "Discover Limitless Choices and Unmatched Convenience";
   static const String signupTitle = "Let's create your account";
+  static const String findRide = "Find Ride";
+  static const String publishRide = "Find Ride";
   static const String forgetPasswordTitle = "Forget password";
   static const String forgetPasswordSubTitle = "Don’t worry sometimes people can forget too, enter your email and we will send a password reset email.";
 
@@ -58,15 +60,9 @@ class TTexts {
 
 // -- Authentication Headings Text
   static const String changeYourPasswordTitle = "Password Reset Email Sent";
-
   static const String changeYourPasswordSubTitle = "Your Account Security is Our Priority! We’ve Sent You a Secure Link to Safely Change Your Password and Keep Your Account Protected.";
-
-
+  static const String emailNotReceivedMessage = "Didn’t get the email? Check your junk/spam or resend it.";
   static const String done = "Done";
 
-//  -- Carpool HomeScreen
-
-  static const String publishRide = "Publish a ride";
-  static const String findRide = "Find a ride";
 
 }

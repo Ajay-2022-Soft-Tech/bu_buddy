@@ -1,4 +1,5 @@
 import 'package:bu_buddy/features/authentication/screens/password_configuration/forget_password.dart';
+import 'package:bu_buddy/features/car/screens/home/find_a_ride.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get_navigation/src/root/get_material_app.dart';
 import 'package:get/get_navigation/src/routes/get_route.dart';
@@ -37,7 +38,7 @@ class App extends StatelessWidget {
         GetPage(name: '/forgot_password', page: () => ForgetPassword()),  // Forgot password screen
 
         // Carpool Screens
-        // GetPage(name: '/car_home', page: () => CarHomeScreen()),  // Car Home screen
+        GetPage(name: '/find_ride', page: () => FindARideScreen()),  // Car Home screen
         // GetPage(name: '/laundry', page: () => CarHomeScreen()),  // Find a ride screen
         // GetPage(name: '/dietplan', page: () => CarHomeScreen()),  // Find a ride screen
         // GetPage(name: '/publish_ride', page: () => PublishRideScreen()),  // Publish a ride screen

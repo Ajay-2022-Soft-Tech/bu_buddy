@@ -22,54 +22,45 @@ class CarHomeScreen extends StatelessWidget {
         title: Text('Carpool Home'),
         backgroundColor: TColors.primary,  // Using the primary color from TColors
         elevation: 0,
-        toolbarHeight: TSizes.appBarHeight, // Using the app bar height from TSizes
-        leading: IconButton(
-          icon: Icon(Icons.arrow_back),  // Back arrow icon
-          onPressed: () {
-            Get.to(CategorySelectionScreen());  // Navigate back to the previous screen
-          },
-        ),
+        // leading: IconButton(
+        //   icon: Icon(Icons.arrow_back),  // Back arrow icon
+        //   onPressed: () {
+        //     // Get.to(CategorySelectionScreen());  // Navigate back to the previous screen
+        //   },
+        // ),
       ),
-      body: SingleChildScrollView(
-        child: Column(
-          children: [
-            // Wrap the header section with TPrimaryHeaderContainer
-            TPrimaryHeaderContainer(
-              child: Padding(
-                padding: const EdgeInsets.all(TSizes.defaultSpace),
-                child: Column(
-                  children: [
-                    // Greeting Text
-                    Text(
-                      'Good Morning  $userName',
-                      style: Theme.of(context).textTheme.headlineSmall!.apply(
-                        color: THelperFunctions.isDarkMode(context)
-                            ? TColors.white
-                            : TColors.black,
-                      ),
-                    ),
-                    SizedBox(height: 300),
+      body: Column(
+        children: [
+          // Wrap the header section with TPrimaryHeaderContainer
 
-                    // Car Image
-                    Center(
-                      child: Image.asset(
-                        'assets/images/selection_menu/car_pool.jpg', // Replace with the actual image path
-                        height: 180, // Adjust image height to match the design
-                        width: double.infinity, // Full width to match the car design
-                        fit: BoxFit.fitWidth,  // Ensures the image stretches but maintains aspect ratio
-                      ),
-                    ),
-
-                    // Buttons for "Find a ride" and "Publish a ride"
-                  ],
-                ),
+          Center(
+            child: Text(
+              'Good Morning  $userName',
+              style: Theme.of(context).textTheme.headlineSmall!.apply(
+                color: THelperFunctions.isDarkMode(context)
+                    ? TColors.white
+                    : TColors.black,
               ),
-
             ),
-            Buttons(),  // Assuming Buttons widget is added here
+          ),
+          SizedBox(height: 50),
 
-          ],
-        ),
+
+          // Car Image
+          Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: Center(
+              child: Image.asset(
+                'assets/images/selection_menu/car_pool.jpg', // Replace with the actual image path
+                height: 180, // Adjust image height to match the design
+                width: double.infinity, // Full width to match the car design
+                fit: BoxFit.fitWidth,  // Ensures the image stretches but maintains aspect ratio
+              ),
+            ),
+          ),
+          Buttons(),  // Assuming Buttons widget is added here
+
+        ],
       ),
     );
   }

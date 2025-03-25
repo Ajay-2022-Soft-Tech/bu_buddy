@@ -1,6 +1,5 @@
 
 
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
 import '../../../utils/constants/colors.dart';
@@ -9,7 +8,7 @@ import '../../../utils/helpers/helper_functions.dart';
 
 class TVerticalImageText extends StatelessWidget {
   const TVerticalImageText({
-    super.key, required this.image, required this.title, this.textColor= TColors.white, this.backgroundColor= TColors.white, this.onTap,
+    super.key, required this.image, required this.title, this.textColor= TColors.white, this.backgroundColor, this.onTap,
   });
 
   final String image, title;

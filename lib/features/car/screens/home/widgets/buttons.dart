@@ -23,7 +23,7 @@ class Buttons extends StatelessWidget {
           ElevatedButton(
             onPressed: () {
               // Navigate to Find a ride screen
-              // Get.toNamed('/find_ride');  // Navigate to the "Find a ride" screen
+              Get.toNamed('/find_ride');  // Navigate to the "Find a ride" screen
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: TColors.primary, // Button color from TColors
