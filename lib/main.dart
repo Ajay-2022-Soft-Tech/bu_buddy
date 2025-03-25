@@ -1,3 +1,4 @@
+import 'package:bu_buddy/utils/http/network_manager.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_native_splash/flutter_native_splash.dart';
 import 'package:get/get.dart';
@@ -42,6 +43,7 @@ Future<void> main() async {
   // upload();
 
   // Todo Initialize Authentication
+  Get.put(NetworkManager());
 
   runApp(const App());
 }

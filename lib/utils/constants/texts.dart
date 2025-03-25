@@ -51,9 +51,9 @@ class TTexts {
   static const String loginTitle = "Welcome back,";
   static const String loginSubTitle= "Discover Limitless Choices and Unmatched Convenience";
   static const String signupTitle = "Let's create your account";
-  static const String findRide = "Find Ride";
-  static const String publishRide = "Find Ride";
   static const String forgetPasswordTitle = "Forget password";
+  static const String findRide = "Find Ride";
+  static const String publishRide = "Publish a Ride";
   static const String forgetPasswordSubTitle = "Don’t worry sometimes people can forget too, enter your email and we will send a password reset email.";
 
   static const String submit = "Submit";
