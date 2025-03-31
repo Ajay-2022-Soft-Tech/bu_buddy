@@ -75,7 +75,7 @@ class _MyTripsScreenState extends State<MyTripsScreen> {
           return FadeTransition(
             opacity: animation,
             child: Card(
-              color: TColors.softGrey,
+              color: TColors.white,
               margin: const EdgeInsets.symmetric(vertical: 10, horizontal: 13),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(TSizes.cardRadiusSm),

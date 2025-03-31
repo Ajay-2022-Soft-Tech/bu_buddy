@@ -1,4 +1,6 @@
+import 'package:bu_buddy/features/car/screens/available_rides/available_rides.dart';
 import 'package:bu_buddy/features/car/screens/my_trips/my_trips.dart';
+import 'package:bu_buddy/features/personalization/screens/notifications/notifications.dart';
 import 'package:bu_buddy/features/personalization/screens/profile/profile.dart';
 import 'package:bu_buddy/features/personalization/screens/settings/settings.dart';
 import 'package:flutter/material.dart';
@@ -36,7 +38,7 @@ class NavigationMenu extends StatelessWidget {
             ),
             NavigationDestination(
               icon: Icon(Iconsax.car, size: 30),
-              label: 'My Trips',
+              label: 'Trips',
             ),
             NavigationDestination(
               icon: Icon(Iconsax.notification, size: 30),
@@ -62,8 +64,8 @@ class NavigationController extends GetxController {
   // List of screens to be displayed based on the selected tab
   final screens = [
     CarHomeScreen(),  // First screen: CarHomeScreen for "Home"
-    MyTripsScreen(),
-    Container(color: Colors.green),  // Example screen for Notifications
+    TripsScreen(),
+    NotificationsScreen(),
     SettingsScreen(),
   ];
 }

@@ -61,6 +61,14 @@ class TValidator {
 
     return null;
   }
+
+  /// Validate Ride Details (Pickup, Destination, Date, Time)
+  static String? validateRideDetails(String? fieldName, String? value) {
+    if (value == null || value.isEmpty) {
+      return '$fieldName is required.';
+    }
+    return null;
+  }
 //   Add More custom Validators as needed for your requirements
 
 }
