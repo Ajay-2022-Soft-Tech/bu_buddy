@@ -36,7 +36,7 @@ dependencies:
 
 
   # State Management
-  get: ^4.6.6
+#  get: ^4.6.6
   get_storage: ^2.1.1
 
   # Product Specific
@@ -53,14 +53,16 @@ dependencies:
   google_sign_in: ^6.3.0
 
 
-  google_maps_flutter: ^2.10.0
+#  google_maps_flutter: ^2.10.0
   flutter_datetime_picker: ^1.5.1
 
   geolocator: ^13.0.2  # Downgrade to a version compatible with geolocator_android 3.2.1
   geolocator_android: ^4.6.1
   #  google_places_autocomplete: ^0.0.4
-  google_places_autocomplete_flutter: ^1.0.6
-
+#  geolocator: ^8.2.0
+  google_maps_flutter: ^2.0.6
+  google_places_autocomplete_flutter: ^1.0.6  # Updated to the latest version
+  get: ^4.6.5
 
 
 

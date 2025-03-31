@@ -65,20 +65,17 @@ class SettingsScreen extends StatelessWidget {
                       title: 'My Addresses',
                       subTitle: 'Set shopping delivery address',
                       onTap: () => Get.to(() => const UserAddressScreen())),
+
                   TSettingsMenuTile(
-                      icon: Iconsax.shopping_cart,
-                      title: 'My Cart',
-                      subTitle: 'Add, remove products and move to checkout'),
-                  TSettingsMenuTile(
-                      icon: Iconsax.bag_tick,
-                      title: 'My Orders',
+                      icon: Iconsax.car,
+                      title: 'My Rides',
                       subTitle: 'In-progress and Completed Orders',
                     // onTap: () => Get.to(() => const OrderScreen())
                   ),
                   TSettingsMenuTile(
-                      icon: Iconsax.bank,
-                      title: 'Bank Account',
-                      subTitle: 'Withdraw balance to registered bank account'),
+                      icon: Iconsax.coin,
+                      title: 'Account Coins',
+                      subTitle: 'Withdraw balance to Ride More'),
                   TSettingsMenuTile(
                       icon: Iconsax.discount_shape,
                       title: 'My Coupons',

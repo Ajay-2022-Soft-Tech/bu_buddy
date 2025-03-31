@@ -11,6 +11,7 @@ import 'app.dart';
 import 'app.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'data/repositories/authentication/autentication_repository.dart';
+import 'features/personalization/controllers/user_controller.dart';
 import 'firebase_options.dart';
 // -------Entry points of Flutter App
 
@@ -44,6 +45,7 @@ Future<void> main() async {
 
   // Todo Initialize Authentication
   Get.put(NetworkManager());
+  Get.put(UserController());
 
   runApp(const App());
 }

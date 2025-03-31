@@ -1,3 +1,6 @@
+import 'package:bu_buddy/features/car/screens/my_trips/my_trips.dart';
+import 'package:bu_buddy/features/personalization/screens/profile/profile.dart';
+import 'package:bu_buddy/features/personalization/screens/settings/settings.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:iconsax/iconsax.dart';
@@ -59,8 +62,8 @@ class NavigationController extends GetxController {
   // List of screens to be displayed based on the selected tab
   final screens = [
     CarHomeScreen(),  // First screen: CarHomeScreen for "Home"
+    MyTripsScreen(),
     Container(color: Colors.green),  // Example screen for Notifications
-    Container(color: Colors.green),  // Example screen for Notifications
-    Container(color: Colors.blue),  // Example screen for Profile
+    SettingsScreen(),
   ];
 }

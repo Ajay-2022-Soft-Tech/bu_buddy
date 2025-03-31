@@ -23,6 +23,7 @@ class ProfileScreen extends StatelessWidget {
       appBar: TAppBar(
         title: Text('Profile'),
         showBackArrow: true,
+
       ),
       body: SingleChildScrollView(
 
