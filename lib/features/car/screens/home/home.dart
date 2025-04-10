@@ -144,7 +144,7 @@ class _CarHomeScreenState extends State<CarHomeScreen> with SingleTickerProvider
                                 _buildWelcomeSection(controller),
 
                                 // Feature card without parallax
-                                ImprovedFeatureCard(),
+                                SlidableFeatureCards(),
 
                                 // Optimized quick action buttons
                                 _buildQuickActions(controller),
