@@ -63,7 +63,7 @@ class NavigationController extends GetxController {
 
   // List of screens to be displayed based on the selected tab
   final screens = [
-    CarHomeScreen(),  // First screen: CarHomeScreen for "Home"
+    CarHomeScreen(),
     TripsScreen(),
     NotificationsScreen(),
     SettingsScreen(),
