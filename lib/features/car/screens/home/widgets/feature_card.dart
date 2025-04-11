@@ -43,7 +43,7 @@ class SlidableFeatureCards extends StatefulWidget {
 }
 
 class _SlidableFeatureCardsState extends State<SlidableFeatureCards> with SingleTickerProviderStateMixin {
-  final PageController _pageController = PageController(viewportFraction: 0.97); // Wider cards
+  final PageController _pageController = PageController(viewportFraction: 0.97);
   late AnimationController _animationController;
   int _currentPage = 0;
 
@@ -107,12 +107,10 @@ class _SlidableFeatureCardsState extends State<SlidableFeatureCards> with Single
   void initState() {
     super.initState();
     _pageController.addListener(_onPageChanged);
-
     _animationController = AnimationController(
       duration: const Duration(milliseconds: 300),
       vsync: this,
     );
-
     _animationController.forward();
   }
 
@@ -126,7 +124,6 @@ class _SlidableFeatureCardsState extends State<SlidableFeatureCards> with Single
 
   void _onPageChanged() {
     if (!_pageController.hasClients) return;
-
     final page = _pageController.page?.round() ?? 0;
     if (_currentPage != page) {
       setState(() {
@@ -139,9 +136,11 @@ class _SlidableFeatureCardsState extends State<SlidableFeatureCards> with Single
 
   @override
   Widget build(BuildContext context) {
-    // Using a fixed height container to prevent layout issues
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final primaryColor = isDark ? Colors.blueAccent : TColors.primary;
+
     return SizedBox(
-      height: 400, // Fixed height to prevent layout recursion
+      height: 400,
       child: Column(
         children: [
           // Cards carousel
@@ -161,7 +160,7 @@ class _SlidableFeatureCardsState extends State<SlidableFeatureCards> with Single
                       child: AnimatedOpacity(
                         duration: const Duration(milliseconds: 350),
                         opacity: isCurrentPage ? 1.0 : 0.7,
-                        child: _buildFeatureCard(_rideOffers[index], index),
+                        child: _buildFeatureCard(_rideOffers[index], index, isDark, primaryColor),
                       ),
                     );
                   },
@@ -175,7 +174,7 @@ class _SlidableFeatureCardsState extends State<SlidableFeatureCards> with Single
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             decoration: BoxDecoration(
-              color: Colors.black.withOpacity(0.05),
+              color: isDark ? Colors.white.withOpacity(0.1) : Colors.black.withOpacity(0.05),
               borderRadius: BorderRadius.circular(20),
             ),
             child: Row(
@@ -183,7 +182,25 @@ class _SlidableFeatureCardsState extends State<SlidableFeatureCards> with Single
               mainAxisAlignment: MainAxisAlignment.center,
               children: List.generate(
                 _rideOffers.length,
-                    (index) => _buildPageIndicator(index == _currentPage),
+                    (index) => AnimatedContainer(
+                  duration: const Duration(milliseconds: 300),
+                  margin: const EdgeInsets.symmetric(horizontal: 4),
+                  height: 8,
+                  width: index == _currentPage ? 24 : 8,
+                  decoration: BoxDecoration(
+                    color: index == _currentPage
+                        ? primaryColor
+                        : (isDark ? Colors.grey.withOpacity(0.4) : Colors.grey.withOpacity(0.3)),
+                    borderRadius: BorderRadius.circular(4),
+                    boxShadow: index == _currentPage ? [
+                      BoxShadow(
+                        color: primaryColor.withOpacity(0.3),
+                        blurRadius: 4,
+                        spreadRadius: 1,
+                      )
+                    ] : null,
+                  ),
+                ),
               ),
             ),
           ),
@@ -192,37 +209,26 @@ class _SlidableFeatureCardsState extends State<SlidableFeatureCards> with Single
     );
   }
 
-  Widget _buildPageIndicator(bool isActive) {
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 300),
-      margin: const EdgeInsets.symmetric(horizontal: 4),
-      height: 8,
-      width: isActive ? 24 : 8,
-      decoration: BoxDecoration(
-        color: isActive ? TColors.primary : Colors.grey.withOpacity(0.3),
-        borderRadius: BorderRadius.circular(4),
-        boxShadow: isActive ? [
-          BoxShadow(
-            color: TColors.primary.withOpacity(0.3),
-            blurRadius: 4,
-            spreadRadius: 1,
-          )
-        ] : null,
-      ),
-    );
-  }
+  Widget _buildFeatureCard(RideOffer offer, int index, bool isDark, Color primaryColor) {
+    final textColor = isDark ? Colors.white : TColors.textPrimary;
+    final secondaryTextColor = isDark ? Colors.grey[300] : TColors.textSecondary;
+    final cardBgColors = isDark
+        ? [Colors.grey.shade900.withOpacity(0.8), Color(0xFF1E293B).withOpacity(0.7)]
+        : [Colors.white.withOpacity(0.9), Colors.white.withOpacity(0.7)];
+    final borderColor = isDark
+        ? Colors.blueAccent.withOpacity(0.3)
+        : Colors.white.withOpacity(0.5);
 
-  Widget _buildFeatureCard(RideOffer offer, int index) {
     return Container(
       margin: EdgeInsets.only(
-        right: index == _rideOffers.length - 1 ? 0 : 6, // Reduced from 12
-        left: index == 0 ? 0 : 6, // Reduced from 12
+        right: index == _rideOffers.length - 1 ? 0 : 6,
+        left: index == 0 ? 0 : 6,
         top: TSizes.spaceBtwItems,
         bottom: TSizes.spaceBtwItems / 2,
       ),
       child: Card(
         elevation: 8,
-        shadowColor: Colors.black.withOpacity(0.3),
+        shadowColor: Colors.black.withOpacity(isDark ? 0.5 : 0.3),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(TSizes.cardRadiusLg),
         ),
@@ -235,16 +241,10 @@ class _SlidableFeatureCardsState extends State<SlidableFeatureCards> with Single
                 gradient: LinearGradient(
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
-                  colors: [
-                    Colors.white.withOpacity(0.9),
-                    Colors.white.withOpacity(0.7),
-                  ],
+                  colors: cardBgColors,
                 ),
                 borderRadius: BorderRadius.circular(TSizes.cardRadiusLg),
-                border: Border.all(
-                  color: Colors.white.withOpacity(0.5),
-                  width: 1.5,
-                ),
+                border: Border.all(color: borderColor, width: 1.5),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -252,22 +252,22 @@ class _SlidableFeatureCardsState extends State<SlidableFeatureCards> with Single
                   // Header
                   Padding(
                     padding: const EdgeInsets.all(TSizes.md),
-                    child: _buildCardHeader(offer),
+                    child: _buildCardHeader(offer, isDark, primaryColor),
                   ),
 
-                  // Body - most content goes here
+                  // Body
                   Expanded(
                     child: SingleChildScrollView(
                       padding: const EdgeInsets.symmetric(horizontal: TSizes.md),
                       physics: const BouncingScrollPhysics(),
-                      child: _buildCardBody(offer),
+                      child: _buildCardBody(offer, isDark, textColor, primaryColor),
                     ),
                   ),
 
                   // Footer
                   Padding(
                     padding: const EdgeInsets.all(TSizes.md),
-                    child: _buildCardFooter(offer),
+                    child: _buildCardFooter(offer, isDark, textColor, secondaryTextColor, primaryColor),
                   ),
                 ],
               ),
@@ -278,7 +278,15 @@ class _SlidableFeatureCardsState extends State<SlidableFeatureCards> with Single
     );
   }
 
-  Widget _buildCardHeader(RideOffer offer) {
+  Widget _buildCardHeader(RideOffer offer, bool isDark, Color primaryColor) {
+    final headerGradient = isDark
+        ? [Colors.blueAccent, Colors.blueAccent.withBlue(220)]
+        : [primaryColor, primaryColor.withBlue(180)];
+
+    final discountColors = isDark
+        ? [Colors.green.shade400, Colors.green.shade600]
+        : [Colors.green.shade600, Colors.green.shade700];
+
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
@@ -289,28 +297,22 @@ class _SlidableFeatureCardsState extends State<SlidableFeatureCards> with Single
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: TColors.primary.withOpacity(0.15),
+                  color: primaryColor.withOpacity(0.15),
                   borderRadius: BorderRadius.circular(TSizes.cardRadiusSm),
-                  boxShadow: [
-                    BoxShadow(
-                      color: TColors.primary.withOpacity(0.2),
-                      blurRadius: 4,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
+                  boxShadow: [BoxShadow(
+                    color: primaryColor.withOpacity(0.2),
+                    blurRadius: 4,
+                    offset: const Offset(0, 2),
+                  )],
                 ),
-                child: Icon(
-                  offer.icon,
-                  color: TColors.primary,
-                  size: 22,
-                ),
+                child: Icon(offer.icon, color: primaryColor, size: 22),
               ),
               const SizedBox(width: 12),
               // Title with gradient text
               Flexible(
                 child: ShaderMask(
                   shaderCallback: (bounds) => LinearGradient(
-                    colors: [TColors.primary, TColors.primary.withBlue(180)],
+                    colors: headerGradient,
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ).createShader(bounds),
@@ -332,27 +334,19 @@ class _SlidableFeatureCardsState extends State<SlidableFeatureCards> with Single
         const SizedBox(width: 8),
         // Discount badge
         Container(
-          padding: const EdgeInsets.symmetric(
-            horizontal: 12,
-            vertical: 6,
-          ),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
           decoration: BoxDecoration(
             gradient: LinearGradient(
-              colors: [
-                Colors.green.shade600,
-                Colors.green.shade700,
-              ],
+              colors: discountColors,
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
             borderRadius: BorderRadius.circular(18),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.green.withOpacity(0.3),
-                blurRadius: 6,
-                offset: const Offset(0, 2),
-              ),
-            ],
+            boxShadow: [BoxShadow(
+              color: Colors.green.withOpacity(isDark ? 0.2 : 0.3),
+              blurRadius: 6,
+              offset: const Offset(0, 2),
+            )],
           ),
           child: Text(
             offer.discount,
@@ -367,7 +361,21 @@ class _SlidableFeatureCardsState extends State<SlidableFeatureCards> with Single
     );
   }
 
-  Widget _buildCardBody(RideOffer offer) {
+  Widget _buildCardBody(RideOffer offer, bool isDark, Color textColor, Color primaryColor) {
+    final routeBgColor = isDark
+        ? Color(0xFF1F2937).withOpacity(0.9)
+        : Colors.white.withOpacity(0.7);
+
+    final dividerColor = isDark
+        ? Colors.grey.withOpacity(0.4)
+        : Colors.grey.withOpacity(0.3);
+
+    final labelColor = isDark ? Colors.grey[300] : Colors.grey[700];
+
+    final descriptionColor = isDark
+        ? Colors.grey[400]
+        : textColor.withOpacity(0.8);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -376,16 +384,13 @@ class _SlidableFeatureCardsState extends State<SlidableFeatureCards> with Single
           margin: const EdgeInsets.only(bottom: 16),
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.7),
+            color: routeBgColor,
             borderRadius: BorderRadius.circular(TSizes.cardRadiusMd),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.05),
-                blurRadius: 5,
-                spreadRadius: 0,
-                offset: const Offset(0, 2),
-              ),
-            ],
+            boxShadow: [BoxShadow(
+              color: Colors.black.withOpacity(isDark ? 0.2 : 0.05),
+              blurRadius: 5,
+              offset: const Offset(0, 2),
+            )],
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -395,88 +400,30 @@ class _SlidableFeatureCardsState extends State<SlidableFeatureCards> with Single
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
+                    // From location
                     Expanded(
                       flex: 10,
-                      child: _buildRouteInfo(
-                        'From',
-                        offer.from,
-                        Icons.location_on_outlined,
-                        Colors.blue.shade700,
-                      ),
+                      child: _buildRouteInfo('From', offer.from,
+                          Icons.location_on_outlined, Colors.blue.shade700, isDark, textColor),
                     ),
-                    // Vertical path with decorations
+                    // Path visualization
                     SizedBox(
                       width: 30,
-                      child: Center(
-                        child: Stack(
-                          alignment: Alignment.center,
-                          children: [
-                            VerticalDivider(
-                              color: Colors.grey.withOpacity(0.3),
-                              thickness: 1,
-                              width: 10,
-                            ),
-                            Positioned(
-                              top: 15,
-                              child: Container(
-                                width: 10,
-                                height: 10,
-                                decoration: BoxDecoration(
-                                  color: Colors.blue.shade700,
-                                  shape: BoxShape.circle,
-                                ),
-                              ),
-                            ),
-                            Positioned(
-                              bottom: 15,
-                              child: Container(
-                                width: 10,
-                                height: 10,
-                                decoration: BoxDecoration(
-                                  color: Colors.red.shade700,
-                                  shape: BoxShape.circle,
-                                ),
-                              ),
-                            ),
-                            // Small dots along the path
-                            ...List.generate(
-                              3,
-                                  (i) => Positioned(
-                                top: 25 + (i * 5),
-                                child: Container(
-                                  width: 3,
-                                  height: 3,
-                                  decoration: BoxDecoration(
-                                    color: Colors.grey.shade600,
-                                    shape: BoxShape.circle,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
+                      child: _buildRoutePath(isDark),
                     ),
+                    // To location
                     Expanded(
                       flex: 10,
-                      child: _buildRouteInfo(
-                        'To',
-                        offer.to,
-                        Icons.flag_outlined,
-                        Colors.red.shade700,
-                      ),
+                      child: _buildRouteInfo('To', offer.to,
+                          Icons.flag_outlined, Colors.red.shade700, isDark, textColor),
                     ),
                   ],
                 ),
               ),
 
-              Divider(
-                color: Colors.grey.withOpacity(0.3),
-                height: 30,
-                thickness: 1,
-              ),
+              Divider(color: dividerColor, height: 30, thickness: 1),
 
-              // Trip details with Wrap for flexibility
+              // Trip details
               Wrap(
                 spacing: 10,
                 runSpacing: 8,
@@ -485,17 +432,20 @@ class _SlidableFeatureCardsState extends State<SlidableFeatureCards> with Single
                   _buildInfoChip(
                     icon: Icons.access_time_rounded,
                     label: offer.time,
-                    color: Colors.purple.shade700,
+                    color: isDark ? Colors.purple.shade400 : Colors.purple.shade700,
+                    isDark: isDark,
                   ),
                   _buildInfoChip(
                     icon: Icons.person_outline_rounded,
                     label: '${offer.availableSeats} seats',
-                    color: Colors.orange.shade700,
+                    color: isDark ? Colors.orange.shade400 : Colors.orange.shade700,
+                    isDark: isDark,
                   ),
                   _buildInfoChip(
                     icon: Icons.currency_rupee_rounded,
                     label: '${offer.price.toInt()} only',
-                    color: Colors.green.shade700,
+                    color: isDark ? Colors.green.shade400 : Colors.green.shade700,
+                    isDark: isDark,
                   ),
                 ],
               ),
@@ -503,19 +453,18 @@ class _SlidableFeatureCardsState extends State<SlidableFeatureCards> with Single
           ),
         ),
 
-        // Conditional description
+        // Description if available
         if (offer.description != null) ...[
           Padding(
             padding: const EdgeInsets.only(bottom: 16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  'About this ride',
+                Text('About this ride',
                   style: TextStyle(
                     fontSize: TSizes.fontSizeSm,
                     fontWeight: FontWeight.w600,
-                    color: Colors.grey.shade700,
+                    color: labelColor,
                   ),
                 ),
                 const SizedBox(height: 4),
@@ -523,7 +472,7 @@ class _SlidableFeatureCardsState extends State<SlidableFeatureCards> with Single
                   offer.description!,
                   style: TextStyle(
                     fontSize: TSizes.fontSizeSm * 0.9,
-                    color: TColors.textPrimary.withOpacity(0.8),
+                    color: descriptionColor,
                   ),
                 ),
               ],
@@ -531,40 +480,37 @@ class _SlidableFeatureCardsState extends State<SlidableFeatureCards> with Single
           ),
         ],
 
-        // Conditional amenities
+        // Amenities if available
         if (offer.amenities != null && offer.amenities!.isNotEmpty) ...[
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                'Amenities',
+              Text('Amenities',
                 style: TextStyle(
                   fontSize: TSizes.fontSizeSm,
                   fontWeight: FontWeight.w600,
-                  color: Colors.grey.shade700,
+                  color: labelColor,
                 ),
               ),
               const SizedBox(height: 6),
               Wrap(
                 spacing: 8,
                 runSpacing: 8,
-                children: offer.amenities!.map((amenity) =>
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: TColors.primary.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Text(
-                        amenity,
-                        style: TextStyle(
-                          fontSize: TSizes.xs,
-                          color: TColors.primary,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    )
-                ).toList(),
+                children: offer.amenities!.map((amenity) => Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: primaryColor.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    amenity,
+                    style: TextStyle(
+                      fontSize: TSizes.xs,
+                      color: primaryColor,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                )).toList(),
               ),
             ],
           ),
@@ -573,7 +519,64 @@ class _SlidableFeatureCardsState extends State<SlidableFeatureCards> with Single
     );
   }
 
-  Widget _buildRouteInfo(String title, String value, IconData icon, Color color) {
+  Widget _buildRoutePath(bool isDark) {
+    final dotColor = isDark ? Colors.grey.shade400 : Colors.grey.shade600;
+
+    return Center(
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          VerticalDivider(
+            color: isDark ? Colors.grey.withOpacity(0.4) : Colors.grey.withOpacity(0.3),
+            thickness: 1,
+            width: 10,
+          ),
+          Positioned(
+            top: 15,
+            child: Container(
+              width: 10,
+              height: 10,
+              decoration: BoxDecoration(
+                color: Colors.blue.shade700,
+                shape: BoxShape.circle,
+              ),
+            ),
+          ),
+          Positioned(
+            bottom: 15,
+            child: Container(
+              width: 10,
+              height: 10,
+              decoration: BoxDecoration(
+                color: Colors.red.shade700,
+                shape: BoxShape.circle,
+              ),
+            ),
+          ),
+          ...List.generate(
+            3,
+                (i) => Positioned(
+              top: 25 + (i * 5),
+              child: Container(
+                width: 3,
+                height: 3,
+                decoration: BoxDecoration(
+                  color: dotColor,
+                  shape: BoxShape.circle,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRouteInfo(
+      String title, String value, IconData icon, Color color, bool isDark, Color textColor) {
+
+    final labelColor = isDark ? Colors.grey.shade400 : Colors.grey.shade600;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
@@ -582,7 +585,7 @@ class _SlidableFeatureCardsState extends State<SlidableFeatureCards> with Single
           title,
           style: TextStyle(
             fontSize: TSizes.fontSizeSm * 0.9,
-            color: Colors.grey.shade600,
+            color: labelColor,
             fontWeight: FontWeight.w500,
           ),
           maxLines: 1,
@@ -597,11 +600,7 @@ class _SlidableFeatureCardsState extends State<SlidableFeatureCards> with Single
                 color: color.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: Icon(
-                icon,
-                size: 16,
-                color: color,
-              ),
+              child: Icon(icon, size: 16, color: color),
             ),
             const SizedBox(width: 6),
             Expanded(
@@ -610,7 +609,7 @@ class _SlidableFeatureCardsState extends State<SlidableFeatureCards> with Single
                 style: TextStyle(
                   fontSize: TSizes.fontSizeSm,
                   fontWeight: FontWeight.bold,
-                  color: TColors.textPrimary,
+                  color: textColor,
                   letterSpacing: 0.2,
                 ),
                 maxLines: 2,
@@ -627,32 +626,29 @@ class _SlidableFeatureCardsState extends State<SlidableFeatureCards> with Single
     required IconData icon,
     required String label,
     required Color color,
+    required bool isDark,
   }) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
-            color.withOpacity(0.15),
-            color.withOpacity(0.05),
+            color.withOpacity(isDark ? 0.2 : 0.15),
+            color.withOpacity(isDark ? 0.1 : 0.05),
           ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: color.withOpacity(0.3),
+          color: color.withOpacity(isDark ? 0.4 : 0.3),
           width: 1,
         ),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(
-            icon,
-            size: 14,
-            color: color,
-          ),
+          Icon(icon, size: 14, color: color),
           const SizedBox(width: 4),
           Text(
             label,
@@ -667,52 +663,58 @@ class _SlidableFeatureCardsState extends State<SlidableFeatureCards> with Single
     );
   }
 
-  Widget _buildCardFooter(RideOffer offer) {
+  Widget _buildCardFooter(
+      RideOffer offer, bool isDark, Color textColor, Color? secondaryTextColor, Color primaryColor) {
+
+    final footerBgColor = isDark
+        ? Color(0xFF1F2937).withOpacity(0.6)
+        : Colors.white.withOpacity(0.5);
+
+    final avatarBgColor = isDark
+        ? Colors.grey.shade800
+        : Colors.grey.shade200;
+
+    final driverIconBgColor = isDark
+        ? Colors.blueAccent.withOpacity(0.15)
+        : primaryColor.withOpacity(0.15);
+
+    final onlineIndicatorBorderColor = isDark
+        ? Colors.grey.shade800
+        : Colors.white;
+
+    final bookButtonColors = isDark
+        ? [Colors.blueAccent, Color(0xFF6878EB)]
+        : [primaryColor, Color(0xFF6870CB)];
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.5),
+        color: footerBgColor,
         borderRadius: BorderRadius.circular(TSizes.cardRadiusMd),
         border: Border.all(
-          color: Colors.grey.withOpacity(0.2),
+          color: isDark ? Colors.grey.withOpacity(0.3) : Colors.grey.withOpacity(0.2),
           width: 1,
         ),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          // Driver info with increased space
+          // Driver info
           Expanded(
-            flex: 3, // Increased from default
+            flex: 3,
             child: Row(
               children: [
                 // Driver avatar with online indicator
                 Stack(
                   children: [
-                    Container(
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(
-                            color: TColors.primary.withOpacity(0.2),
-                            blurRadius: 8,
-                            spreadRadius: 1,
-                          ),
-                        ],
-                      ),
+                    CircleAvatar(
+                      radius: 18,
+                      backgroundColor: avatarBgColor,
                       child: CircleAvatar(
-                        radius: 18,
-                        backgroundColor: Colors.grey.shade200,
-                        child: CircleAvatar(
-                          radius: 17,
-                          backgroundColor: TColors.primary.withOpacity(0.15),
-                          child: const Icon(
-                            Icons.person,
-                            size: 20,
-                            color: TColors.primary,
-                          ),
-                        ),
+                        radius: 17,
+                        backgroundColor: driverIconBgColor,
+                        child: Icon(Icons.person, size: 20, color: primaryColor),
                       ),
                     ),
                     Positioned(
@@ -722,16 +724,16 @@ class _SlidableFeatureCardsState extends State<SlidableFeatureCards> with Single
                         width: 10,
                         height: 10,
                         decoration: BoxDecoration(
-                          color: Colors.green,
+                          color: isDark ? Colors.greenAccent : Colors.green,
                           shape: BoxShape.circle,
-                          border: Border.all(color: Colors.white, width: 1.5),
+                          border: Border.all(color: onlineIndicatorBorderColor, width: 1.5),
                         ),
                       ),
                     ),
                   ],
                 ),
                 const SizedBox(width: 10),
-                // Driver info with tooltip for long names
+                // Driver details
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -740,10 +742,10 @@ class _SlidableFeatureCardsState extends State<SlidableFeatureCards> with Single
                         message: offer.driverName,
                         child: Text(
                           offer.driverName,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: TSizes.fontSizeSm,
                             fontWeight: FontWeight.bold,
-                            color: TColors.textPrimary,
+                            color: textColor,
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -755,22 +757,18 @@ class _SlidableFeatureCardsState extends State<SlidableFeatureCards> with Single
                           Container(
                             padding: const EdgeInsets.all(2),
                             decoration: BoxDecoration(
-                              color: Colors.amber.shade50,
+                              color: isDark ? Colors.amber.withOpacity(0.2) : Colors.amber.shade50,
                               borderRadius: BorderRadius.circular(4),
                             ),
-                            child: const Icon(
-                              Icons.star,
-                              size: 12,
-                              color: Colors.amber,
-                            ),
+                            child: const Icon(Icons.star, size: 12, color: Colors.amber),
                           ),
                           const SizedBox(width: 3),
                           Text(
                             offer.rating.toString(),
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: TSizes.xs,
                               fontWeight: FontWeight.w600,
-                              color: TColors.textSecondary,
+                              color: secondaryTextColor,
                             ),
                           ),
                           const SizedBox(width: 4),
@@ -778,7 +776,7 @@ class _SlidableFeatureCardsState extends State<SlidableFeatureCards> with Single
                             height: 4,
                             width: 4,
                             decoration: BoxDecoration(
-                              color: Colors.grey.shade400,
+                              color: isDark ? Colors.grey.shade500 : Colors.grey.shade400,
                               shape: BoxShape.circle,
                             ),
                           ),
@@ -788,7 +786,7 @@ class _SlidableFeatureCardsState extends State<SlidableFeatureCards> with Single
                               "Superdriver",
                               style: TextStyle(
                                 fontSize: TSizes.xs * 0.9,
-                                color: TColors.primary.withOpacity(0.7),
+                                color: primaryColor.withOpacity(0.7),
                                 fontWeight: FontWeight.w500,
                               ),
                               maxLines: 1,
@@ -803,63 +801,51 @@ class _SlidableFeatureCardsState extends State<SlidableFeatureCards> with Single
               ],
             ),
           ),
-          const SizedBox(width: 8), // Reduced from 10
-          // Smaller Book button
-      Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: () {
-            // Book ride action
-          },
-          borderRadius: BorderRadius.circular(12), // Slightly increased radius
-          splashColor: Colors.white.withOpacity(0.1),
-          highlightColor: Colors.white.withOpacity(0.2),
-          child: Ink(
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [
-                  TColors.primary,
-                  Color(0xFF6870CB),
-                ],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: BorderRadius.circular(12), // Slightly increased radius
-              boxShadow: [
-                BoxShadow(
-                  color: TColors.primary.withOpacity(0.3),
-                  blurRadius: 6,
-                  offset: const Offset(0, 3),
+          const SizedBox(width: 8),
+          // Book button
+          Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: () {},
+              borderRadius: BorderRadius.circular(12),
+              splashColor: Colors.white.withOpacity(0.1),
+              highlightColor: Colors.white.withOpacity(0.2),
+              child: Ink(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: bookButtonColors,
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [BoxShadow(
+                    color: primaryColor.withOpacity(0.3),
+                    blurRadius: 6,
+                    offset: const Offset(0, 3),
+                  )],
                 ),
-              ],
-            ),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8), // Increased padding
-              child: const Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    Icons.directions_car_outlined,
-                    color: Colors.white,
-                    size: 16, // Increased from 14
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.directions_car_outlined, color: Colors.white, size: 16),
+                      SizedBox(width: 6),
+                      Text(
+                        'Book',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: TSizes.fontSizeSm,
+                          color: Colors.white,
+                          letterSpacing: 0.3,
+                        ),
+                      ),
+                    ],
                   ),
-                  SizedBox(width: 6), // Increased from 4
-                  Text(
-                    'Book', // Kept as 'Book' as requested
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: TSizes.fontSizeSm, // Increased from TSizes.xs
-                      color: Colors.white,
-                      letterSpacing: 0.3,
-                    ),
-                  ),
-                ],
+                ),
               ),
             ),
           ),
-        ),
-      ),
-
         ],
       ),
     );
