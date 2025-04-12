@@ -42,7 +42,7 @@ class App extends StatelessWidget {
         GetPage(name: '/find_ride', page: () => FindARideScreen()),  // Car Home screen
         // GetPage(name: '/laundry', page: () => CarHomeScreen()),  // Find a ride screen
         // GetPage(name: '/dietplan', page: () => CarHomeScreen()),  // Find a ride screen
-        GetPage(name: '/publish_ride', page: () => PublishRideScreen()),  // Publish a ride screen
+        // GetPage(name: '/publish_ride', page: () => PublishRideScreen()),  // Publish a ride screen
         // GetPage(name: '/my_trips', page: () => MyTripsScreen()),  // My trips screen
         // GetPage(name: '/ride_details', page: () => RideDetailsScreen()),  // Ride details screen
         // GetPage(name: '/carpool_dashboard', page: () => CarpoolDashboardScreen()),  // Carpool dashboard (optional)
