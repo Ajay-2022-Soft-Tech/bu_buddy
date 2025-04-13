@@ -1,3 +1,4 @@
+import 'package:bu_buddy/features/car/controllers/car_home_controller.dart';
 import 'package:bu_buddy/utils/http/network_manager.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_native_splash/flutter_native_splash.dart';
@@ -46,6 +47,7 @@ Future<void> main() async {
   // Todo Initialize Authentication
   Get.put(NetworkManager());
   Get.put(UserController());
+  Get.put(RideController());
 
   runApp(const App());
 }
