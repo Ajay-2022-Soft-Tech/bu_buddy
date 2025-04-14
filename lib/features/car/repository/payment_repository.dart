@@ -1,85 +1,154 @@
-// lib/data/repositories/payments/payment_repository.dart
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-
-class PaymentRepository {
-  final FirebaseFirestore _db = FirebaseFirestore.instance;
-  final FirebaseAuth _auth = FirebaseAuth.instance;
-
-  // Process a payment for a ride
-  Future<Map<String, dynamic>> processPayment(String rideId, double amount, String paymentMethod) async {
-    try {
-      final currentUser = _auth.currentUser;
-      if (currentUser == null) return {'success': false, 'message': 'User not authenticated'};
-
-      // Get the ride details
-      final rideDoc = await _db.collection('rides').doc(rideId).get();
-      if (!rideDoc.exists) return {'success': false, 'message': 'Ride not found'};
-
-      final ride = rideDoc.data() as Map<String, dynamic>;
-
-      // In a real app, you would integrate with a payment gateway like Stripe, PayPal, etc.
-      // For this example, we'll just simulate a successful payment
-
-      // Record the payment
-      final paymentDoc = await _db.collection('payments').add({
-        'rideId': rideId,
-        'userId': currentUser.uid,
-        'driverId': ride['driverId'],
-        'amount': amount,
-        'paymentMethod': paymentMethod,
-        'status': 'completed',
-        'createdAt': FieldValue.serverTimestamp(),
-      });
-
-      // Update the ride to mark payment as complete
-      await _db.collection('rides').doc(rideId).update({
-        'paymentStatus': 'paid',
-        'paymentId': paymentDoc.id,
-      });
-
-      // Update the booking to mark payment as complete
-      final bookingSnapshot = await _db.collection('bookings')
-          .where('rideId', isEqualTo: rideId)
-          .where('userId', isEqualTo: currentUser.uid)
-          .get();
-
-      if (bookingSnapshot.docs.isNotEmpty) {
-        await _db.collection('bookings').doc(bookingSnapshot.docs.first.id).update({
-          'paymentStatus': 'paid',
-          'paymentId': paymentDoc.id,
-        });
-      }
-
-      return {
-        'success': true,
-        'paymentId': paymentDoc.id,
-        'message': 'Payment processed successfully',
-      };
-    } catch (e) {
-      print('Error processing payment: $e');
-      return {'success': false, 'message': 'Payment processing failed: $e'};
-    }
-  }
-
-  // Get payment history for user
-  Future<List<Map<String, dynamic>>> getPaymentHistory() async {
-    try {
-      final currentUser = _auth.currentUser;
-      if (currentUser == null) return [];
-
-      final paymentsSnapshot = await _db.collection('payments')
-          .where('userId', isEqualTo: currentUser.uid)
-          .orderBy('createdAt', descending: true)
-          .get();
-
-      return paymentsSnapshot.docs.map((doc) => {
-        'id': doc.id,
-        ...doc.data() as Map<String, dynamic>,
-      }).toList();
-    } catch (e) {
-      print('Error getting payment history: $e');
-      return [];
-    }
-  }
-}
+// // lib/data/repositories/payment/payment_repository.dart
+// import 'dart:math';
+//
+// import 'package:cloud_firestore/cloud_firestore.dart';
+//
+// import 'base_repository.dart';
+//
+// class PaymentRepository extends BaseRepository {
+//   // Process payment
+//   Future<Map<String, dynamic>> processPayment(String rideId, double amount,
+//       String paymentMethod) async {
+//     try {
+//       if (currentUser == null) throw 'User not authenticated';
+//
+//       final batch = db.batch();
+//
+//       // Add payment record
+//       final paymentRef = db.collection('payments').doc();
+//       batch.set(paymentRef, {
+//         'rideId': rideId,
+//         'userId': currentUser!.uid,
+//         'amount': amount,
+//         'paymentMethod': paymentMethod,
+//         'status': 'completed',
+//         'createdAt': FieldValue.serverTimestamp(),
+//       });
+//
+//       // Update ride payment status
+//       batch.update(db.collection('rides').doc(rideId), {
+//         'paymentStatus': 'paid',
+//         'paymentId': paymentRef.id,
+//       });
+//
+//       await batch.commit();
+//
+//       return {
+//         'success': true,
+//         'paymentId': paymentRef.id,
+//       };
+//     } catch (e) {
+//       await handleError(e, 'processPayment');
+//       return {'success': false, 'error': e.toString()};
+//     }
+//   }
+//
+//   // Get payment history
+//   Stream<QuerySnapshot> getPaymentHistory() {
+//     if (currentUser == null) return const Stream.empty();
+//
+//     return db.collection('payments')
+//         .where('userId', isEqualTo: currentUser!.uid)
+//         .orderBy('createdAt', descending: true)
+//         .snapshots();
+//   }
+// }
+//
+// // lib/data/repositories/tracking/tracking_repository.dart
+// class TrackingRepository extends BaseRepository {
+//   // Update location
+//   Future<void> updateLocation(String rideId, GeoPoint location) async {
+//     try {
+//       if (currentUser == null) throw 'User not authenticated';
+//
+//       await db.collection('rides').doc(rideId).update({
+//         'currentLocation': location,
+//         'lastLocationUpdate': FieldValue.serverTimestamp(),
+//       });
+//     } catch (e) {
+//       await handleError(e, 'updateLocation');
+//     }
+//   }
+//
+//   // Get location updates
+//   Stream<DocumentSnapshot> getLocationUpdates(String rideId) {
+//     return db.collection('rides').doc(rideId).snapshots();
+//   }
+//
+//   // Calculate ETA
+//   Future<double> calculateETA(GeoPoint start, GeoPoint end) async {
+//     try {
+//       // Simple distance calculation (you'd want to use Maps API in production)
+//       final distanceKm = _calculateDistance(start, end);
+//       const avgSpeedKmH = 40; // Average city speed
+//       return distanceKm / avgSpeedKmH;
+//     } catch (e) {
+//       await handleError(e, 'calculateETA');
+//       return -1;
+//     }
+//   }
+//
+//   double _calculateDistance(GeoPoint start, GeoPoint end) {
+//     // Simple Haversine formula
+//     const R = 6371; // Earth's radius in km
+//     final lat1 = start.latitude * pi / 180;
+//     final lat2 = end.latitude * pi / 180;
+//     final dLat = (end.latitude - start.latitude) * pi / 180;
+//     final dLon = (end.longitude - start.longitude) * pi / 180;
+//
+//     final a = sin(dLat/2) * sin(dLat/2) +
+//         cos(lat1) * cos(lat2) * sin(dLon/2) * sin(dLon/2);
+//     final c = 2 * atan2(sqrt(a), sqrt(1-a));
+//     return R * c;
+//   }
+// }
+//
+// // lib/data/repositories/review/review_repository.dart
+// class ReviewRepository extends BaseRepository {
+//   // Add review
+//   Future<void> addReview(String rideId, String revieweeId, double rating, String comment) async {
+//     try {
+//       if (currentUser == null) throw 'User not authenticated';
+//
+//       final batch = db.batch();
+//
+//       // Add review
+//       final reviewRef = db.collection('reviews').doc();
+//       batch.set(reviewRef, {
+//         'rideId': rideId,
+//         'reviewerId': currentUser!.uid,
+//         'revieweeId': revieweeId,
+//         'rating': rating,
+//         'comment': comment,
+//         'createdAt': FieldValue.serverTimestamp(),
+//       });
+//
+//       // Update user's average rating
+//       final userRef = db.collection('users').doc(revieweeId);
+//       final userDoc = await userRef.get();
+//
+//       if (userDoc.exists) {
+//         final currentRating = userDoc.data()?['rating'] ?? 0.0;
+//         final totalReviews = userDoc.data()?['totalReviews'] ?? 0;
+//         final newRating = ((currentRating * totalReviews) + rating) / (totalReviews + 1);
+//
+//         batch.update(userRef, {
+//           'rating': newRating,
+//           'totalReviews': totalReviews + 1,
+//         });
+//       }
+//
+//       await batch.commit();
+//     } catch (e) {
+//       await handleError(e, 'addReview');
+//     }
+//   }
+//
+//   // Get user reviews
+//   Stream<QuerySnapshot> getUserReviews(String userId) {
+//     return db.collection('reviews')
+//         .where('revieweeId', isEqualTo: userId)
+//         .orderBy('createdAt', descending: true)
+//         .snapshots();
+//   }
+// }

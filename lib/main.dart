@@ -12,12 +12,27 @@ import 'app.dart';
 import 'app.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'data/repositories/authentication/autentication_repository.dart';
+import 'data/repositories/user/user_repository.dart';
+import 'features/car/repository/booking_repository.dart';
+import 'features/car/repository/chat_repository.dart';
+import 'features/car/repository/notification_repository.dart';
+import 'features/car/repository/review_repository.dart';
+import 'features/car/repository/trip_repository.dart';
+import 'features/car/repository/tracking_repository.dart';
 import 'features/personalization/controllers/user_controller.dart';
 import 'firebase_options.dart';
 // -------Entry points of Flutter App
 
 // var cloudinary=Cloudinary.fromStringUrl('CLOUDINARY_URL=cloudinary://<276542114554522>:<WmWG11jigsAlBig9Cv-CxJXiXAs>@dcpygpsre');
-
+void initializeRepositories() {
+  Get.put(AuthenticationRepository());
+  Get.put(UserRepository());
+  // Get.put(RideRepository());
+  // Get.put(BookingRepository());
+  Get.put(ChatRepository());
+  Get.put(TrackingRepository());
+  // Get.put(NotificationRepository());
+}
 Future<void> main() async {
 
 // Create a Cloudinary instance and set your cloud name.
@@ -45,9 +60,10 @@ Future<void> main() async {
   // upload();
 
   // Todo Initialize Authentication
+
   Get.put(NetworkManager());
   Get.put(UserController());
-  Get.put(RideController());
+  // Get.put(RideController());
 
   runApp(const App());
 }

@@ -1,120 +1,26 @@
+// RIDE VERIFICATION SCREEN
+import 'package:bu_buddy/features/car/models/ride_details.dart';
 import 'package:flutter/material.dart';
-import 'package:get/get.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:iconsax/iconsax.dart';  // Optional: For custom icons
-import '../../models/ride_details.dart';
-import '../available_rides/available_rides.dart';
+import 'package:flutter_animate/flutter_animate.dart';
+import 'package:iconsax/iconsax.dart';
+import 'package:path/path.dart';
 
 class RideVerificationScreen extends StatelessWidget {
-  final RideDetails rideDetails;
-
-  RideVerificationScreen({required this.rideDetails});
-
-  // Method to save the ride data to Firestore
-  void _confirmRide(BuildContext context) async {
-    try {
-      // Saving ride data to Firestore
-      await FirebaseFirestore.instance.collection('rides').add({
-        'pickupLocation': rideDetails.pickupLocation,
-        'destinationLocation': rideDetails.destinationLocation,
-        'rideDate': rideDetails.rideDate,
-        'rideTime': rideDetails.rideTime,
-        'availableSeats': rideDetails.availableSeats,
-      });
-
-      // After saving, navigate to AvailableRidesScreen
-      Get.back();
-    } catch (e) {
-      // Handle error
-      print("Error saving ride details to Firebase: $e");
-      // Optionally show an error dialog
-      Get.snackbar("Error", "There was an issue saving the ride details.");
-    }
-  }
+  const RideVerificationScreen({super.key, required RideDetails rideDetails});
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text("Verify Ride Details"),
-        backgroundColor: Colors.blueAccent,
-        elevation: 10,
-      ),
-      body: SingleChildScrollView(
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(20),
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Pickup Location
-              _buildDetailCard("Pickup Location: ", rideDetails.pickupLocation),
-              SizedBox(height: 20),
-
-              // Destination Location
-              _buildDetailCard("Destination Location: ", rideDetails.destinationLocation),
-              SizedBox(height: 20),
-
-              // Ride Date
-              _buildDetailCard("Ride Date: ", rideDetails.rideDate),
-              SizedBox(height: 20),
-
-              // Ride Time
-              _buildDetailCard("Ride Time: ", rideDetails.rideTime),
-              SizedBox(height: 20),
-
-              // Available Seats
-              _buildDetailCard("Available Seats: ", "${rideDetails.availableSeats}"),
-              SizedBox(height: 40),
-
-              // Confirm Button with Animation
-              AnimatedContainer(
-                duration: Duration(milliseconds: 500),
-                curve: Curves.easeInOut,
-                child: ElevatedButton(
-                  onPressed: () => _confirmRide(context), // Store the data when pressed
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.blueAccent,
-                    padding: EdgeInsets.symmetric(vertical: 18),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    minimumSize: Size(double.infinity, 60),
-                  ),
-                  child: Text(
-                    'Confirm Ride',
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                  ),
-                ),
-              ),
-              SizedBox(height: 20),
-
-              // Cancel Button
-              GestureDetector(
-                onTap: () {
-                  // Navigate back to PublishRideScreen if user wants to cancel
-                  Get.back();
-                },
-                child: Container(
-                  padding: EdgeInsets.symmetric(vertical: 15),
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.red),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.1),
-                        spreadRadius: 2,
-                        blurRadius: 6,
-                      ),
-                    ],
-                  ),
-                  child: Text(
-                    'Cancel',
-                    style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold, fontSize: 18),
-                  ),
-                ),
-              ),
+              _buildHeader(),
+              const SizedBox(height: 30),
+              _buildDetailsCard(),
+              const SizedBox(height: 30),
+              _buildActionButtons(),
             ],
           ),
         ),
@@ -122,36 +28,97 @@ class RideVerificationScreen extends StatelessWidget {
     );
   }
 
-  // A custom method to build the details UI with animated containers and styling
-  Widget _buildDetailCard(String title, String value) {
-    return AnimatedContainer(
-      duration: Duration(milliseconds: 500),
-      curve: Curves.easeInOut,
-      padding: EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+  Widget _buildHeader() {
+    return Column(
+      children: [
+        Icon(Iconsax.tick_circle, size: 80, color: Colors.blue)
+            .animate()
+            .scale(duration: 800.ms, curve: Curves.elasticOut),
+        const SizedBox(height: 20),
+        Text('Verify Ride Details'),
+        const SizedBox(height: 10),
+        Text('Please confirm your ride information',
+            style: TextStyle(color: Colors.grey.shade400)),
+      ],
+    );
+  }
+
+  Widget _buildDetailsCard() {
+    return Container(
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            spreadRadius: 1,
-            blurRadius: 8,
-            offset: Offset(0, 3),
-          ),
-        ],
+        borderRadius: BorderRadius.circular(20),
+        color: Colors.grey.shade900,
       ),
+      child: Column(
+        children: [
+          _buildDetailRow('From', 'New York City', Iconsax.location),
+          const Divider(color: Colors.grey),
+          _buildDetailRow('To', 'Los Angeles', Iconsax.location_tick),
+          const Divider(color: Colors.grey),
+          _buildDetailRow('Date', 'April 20, 2025', Iconsax.calendar),
+          const Divider(color: Colors.grey),
+          _buildDetailRow('Time', '09:30 AM', Iconsax.clock),
+          const Divider(color: Colors.grey),
+          _buildDetailRow('Seats', '3 Available', Iconsax.people),
+          const Divider(color: Colors.grey),
+          _buildDetailRow('Price', '\$50 per seat', Iconsax.money),
+        ],
+      ).animate().slideX(
+        begin: -20,
+        end: 0,
+        delay: 200.ms,
+      ),
+    );
+  }
+
+  Widget _buildDetailRow(String title, String value, IconData icon) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 12),
       child: Row(
         children: [
-          Icon(Iconsax.info_circle, color: Colors.blueAccent),
-          SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              "$title $value",
-              style: TextStyle(fontSize: 18, color: Colors.black),
-            ),
-          ),
+          Icon(icon, color: Colors.blue),
+          const SizedBox(width: 15),
+          Text(title, style: TextStyle(color: Colors.grey.shade400)),
+          const Spacer(),
+          Text(value, style: const TextStyle(color: Colors.white)),
         ],
       ),
+    );
+  }
+
+  Widget _buildActionButtons() {
+    return Row(
+      children: [
+        Expanded(
+          child: TextButton.icon(
+            icon: const Icon(Iconsax.edit),
+            label: const Text('Edit'),
+            onPressed: () {},
+            style: TextButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 15),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(15),
+              ),
+            ),
+          ).animate().fadeIn(delay: 300.ms),
+        ),
+        const SizedBox(width: 20),
+        Expanded(
+          child: ElevatedButton.icon(
+            icon: const Icon(Iconsax.tick_circle),
+            label: const Text('Confirm'),
+            onPressed: () {},
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.blue,
+              padding: const EdgeInsets.symmetric(vertical: 15),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(15),
+              ),
+            ),
+          ).animate().fadeIn(delay: 400.ms),
+        ),
+      ],
     );
   }
 }
