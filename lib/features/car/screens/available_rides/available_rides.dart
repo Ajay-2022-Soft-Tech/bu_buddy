@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
+import 'package:intl/intl.dart';
 import 'package:lottie/lottie.dart';
 import '../../models/ride_details.dart';  // Model for ride details
 
@@ -98,16 +99,57 @@ class _TripsScreenState extends State<TripsScreen> with TickerProviderStateMixin
 
   // Fetch ride details from Firestore
   Future<List<RideDetails>> _fetchRides() async {
-    final snapshot = await FirebaseFirestore.instance.collection('rides').get();
-    return snapshot.docs.map((doc) {
-      return RideDetails(
-        pickupLocation: doc['pickupLocation'],
-        destinationLocation: doc['destinationLocation'],
-        rideDate: doc['rideDate'],
-        rideTime: doc['rideTime'],
-        availableSeats: doc['availableSeats'],
-      );
-    }).toList();
+    try {
+      final snapshot = await FirebaseFirestore.instance
+          .collection('rides')
+          .where('availableSeats', isGreaterThan: 0)
+          .get();
+
+      return snapshot.docs.map((doc) {
+        final data = doc.data();
+        return RideDetails(
+          id: doc.id,
+          driverId: data['driverId'] ?? '',
+          driverName: data['driverName'] ?? 'Unknown',
+          pickupLocation: data['pickupLocation'] ?? 'Unknown',
+          destinationLocation: data['destinationLocation'] ?? 'Unknown',
+          rideDate: data['rideDate'] ?? 'Unknown',
+          rideTime: data['rideTime'] ?? 'Unknown',
+          availableSeats: data['availableSeats'] ?? 0,
+          fare: (data['fare'] ?? 0.0).toDouble(),
+          vehicleType: data['vehicleType'],
+          vehicleModel: data['vehicleModel'],
+          vehicleColor: data['vehicleColor'],
+          vehiclePlate: data['vehiclePlate'],
+          status: data['status'] ?? 'active',
+          pickupCoordinates: data['pickupCoordinates'],
+          destinationCoordinates: data['destinationCoordinates'],
+          createdAt: data['createdAt'] != null ? (data['createdAt'] as Timestamp).toDate() : null,
+          updatedAt: data['updatedAt'] != null ? (data['updatedAt'] as Timestamp).toDate() : null,
+        );
+      }).toList();
+    } catch (e) {
+      print("Error fetching rides: $e");
+      return [];
+    }
+  }
+
+// Helper method to format date from Timestamp
+  String _formatDate(dynamic timestamp) {
+    if (timestamp is Timestamp) {
+      final date = timestamp.toDate();
+      return DateFormat('EEE, MMM d').format(date);
+    }
+    return 'Unknown date';
+  }
+
+// Helper method to format time from Timestamp
+  String _formatTime(dynamic timestamp) {
+    if (timestamp is Timestamp) {
+      final date = timestamp.toDate();
+      return DateFormat('h:mm a').format(date);
+    }
+    return 'Unknown time';
   }
 
   @override

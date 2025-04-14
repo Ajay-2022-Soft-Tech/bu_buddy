@@ -4,7 +4,6 @@ import 'package:iconsax/iconsax.dart';
 import 'package:intl/intl.dart';
 import '../../../../utils/validators/validation.dart';
 import '../../models/ride_details.dart';
-import '../verify_ride_screen/verify_ride_screen.dart'; // Import the VerifyRideScreen
 
 class PublishRideScreen extends StatefulWidget {
   @override
@@ -32,53 +31,106 @@ class _PublishRideScreenState extends State<PublishRideScreen> {
 
     // Create a RideDetails instance to pass to the VerifyRideScreen
     RideDetails rideDetails = RideDetails(
+      driverId: '', // This should be populated with the current user's ID from authentication
+      driverName: '', // This should be populated with the current user's name
       pickupLocation: pickupController.text,
       destinationLocation: destinationController.text,
       rideDate: dateController.text,
       rideTime: timeController.text,
       availableSeats: availableSeats,
+      fare: 0.0, // You should add a fare controller to collect this information
+      status: 'active', // Default status for a new ride
     );
 
+
     // Navigate to the VerifyRideScreen and pass the rideDetails
-    Get.to(() => RideVerificationScreen(rideDetails: rideDetails));
+    // Get.to(() => RidePublishedConfirmationScreen(rideDetails: rideDetails));
   }
 
   @override
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Color(0xFFF5F7FB),
       appBar: AppBar(
-        title: Text("Publish Ride"),
-        backgroundColor: Colors.blueAccent,
-        elevation: 8,
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        title: Text(
+          "Publish Ride",
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+            fontSize: 22,
+          ),
+        ),
+        flexibleSpace: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [Color(0xFF2C63FF), Color(0xFF3F8CFF)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.only(
+              bottomLeft: Radius.circular(20),
+              bottomRight: Radius.circular(20),
+            ),
+          ),
+        ),
       ),
       body: SingleChildScrollView(
+        physics: BouncingScrollPhysics(),
         child: Padding(
-          padding: const EdgeInsets.all(16.0),
+          padding: const EdgeInsets.all(20.0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Pickup Location Field
-              _buildInputField(pickupController, 'Pickup Location', Iconsax.location),
+              // _buildSectionTitle("Ride Details"),
+              SizedBox(height: 16),
+
+              // Pickup Location Field with improved UI
+              _buildInputField(
+                controller: pickupController,
+                label: 'Pickup Location',
+                icon: Iconsax.location,
+                hint: 'Enter your starting point',
+              ),
               SizedBox(height: 20),
 
-              // Destination Location Field
-              _buildInputField(destinationController, 'Destination Location', Iconsax.location_tick),
+              // Destination Location Field with improved UI
+              _buildInputField(
+                controller: destinationController,
+                label: 'Destination',
+                icon: Iconsax.location_tick,
+                hint: 'Enter your destination',
+              ),
+              SizedBox(height: 30),
+
+              // _buildSectionTitle("Schedule"),
+              SizedBox(height: 16),
+
+              // Date and Time in a row
+              Row(
+                children: [
+                  Expanded(child: _buildDateField()),
+                  SizedBox(width: 16),
+                  Expanded(child: _buildTimeField()),
+                ],
+              ),
+              SizedBox(height: 30),
+
+              // _buildSectionTitle("Ride Options"),
+              SizedBox(height: 16),
+
+              // Seats selector with visual indicator
+              _buildSeatsSelector(),
               SizedBox(height: 20),
 
-              // Date Field
-              _buildDateField(),
-              SizedBox(height: 20),
+              // Fare input field
+              _buildFareField(),
+              SizedBox(height: 40),
 
-              // Time Field
-              _buildTimeField(),
-              SizedBox(height: 20),
-
-              // Passenger Selection Dropdown
-              _buildDropdownButton(),
-              SizedBox(height: 20),
-
-              // Publish Ride Button
-              _buildPublishButton(),
+              // Publish Ride Button with animation
+              _buildAnimatedPublishButton(),
             ],
           ),
         ),
@@ -87,16 +139,21 @@ class _PublishRideScreenState extends State<PublishRideScreen> {
   }
 
   // Custom method to build the input fields
-  Widget _buildInputField(TextEditingController controller, String label, IconData icon) {
+  Widget _buildInputField({
+    required TextEditingController controller,
+    required String label,
+    required IconData icon,
+    String? hint,
+  }) {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(15),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.1),
+            color: Colors.black.withOpacity(0.05),
             spreadRadius: 1,
-            blurRadius: 8,
+            blurRadius: 10,
             offset: Offset(0, 3),
           ),
         ],
@@ -105,11 +162,17 @@ class _PublishRideScreenState extends State<PublishRideScreen> {
         controller: controller,
         decoration: InputDecoration(
           labelText: label,
-          border: InputBorder.none,
-          focusedBorder: OutlineInputBorder(
-            borderSide: BorderSide(color: Colors.blueAccent, width: 2),
+          hintText: hint,
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(15),
+            borderSide: BorderSide.none,
           ),
-          prefixIcon: Icon(icon, color: Colors.blueAccent),
+          contentPadding: EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+          prefixIcon: Container(
+            padding: EdgeInsets.all(12),
+            child: Icon(icon, color: Color(0xFF2C63FF)),
+          ),
+          floatingLabelBehavior: FloatingLabelBehavior.never,
         ),
       ),
     );
@@ -122,8 +185,20 @@ class _PublishRideScreenState extends State<PublishRideScreen> {
         DateTime? pickedDate = await showDatePicker(
           context: context,
           initialDate: DateTime.now(),
-          firstDate: DateTime(2000),
-          lastDate: DateTime(2101),
+          firstDate: DateTime.now(),
+          lastDate: DateTime.now().add(Duration(days: 90)),
+          builder: (context, child) {
+            return Theme(
+              data: Theme.of(context).copyWith(
+                colorScheme: ColorScheme.light(
+                  primary: Color(0xFF2C63FF),
+                  onPrimary: Colors.white,
+                  onSurface: Colors.black,
+                ),
+              ),
+              child: child!,
+            );
+          },
         );
         if (pickedDate != null) {
           setState(() {
@@ -132,28 +207,144 @@ class _PublishRideScreenState extends State<PublishRideScreen> {
         }
       },
       child: Container(
+        padding: EdgeInsets.symmetric(vertical: 12, horizontal: 16),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(15),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.1),
+              color: Colors.black.withOpacity(0.05),
               spreadRadius: 1,
-              blurRadius: 8,
+              blurRadius: 10,
               offset: Offset(0, 3),
             ),
           ],
         ),
-        child: TextField(
-          controller: dateController,
-          enabled: false,
-          decoration: InputDecoration(
-            labelText: 'Ride Date',
-            border: InputBorder.none,
-            focusedBorder: OutlineInputBorder(
-              borderSide: BorderSide(color: Colors.blueAccent, width: 2),
+        child: Row(
+          children: [
+            Icon(Iconsax.calendar, color: Color(0xFF2C63FF)),
+            SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                dateController.text.isEmpty ? "Select Date" : dateController.text,
+                style: TextStyle(
+                  color: dateController.text.isEmpty ? Colors.grey : Colors.black87,
+                  fontSize: 16,
+                ),
+              ),
             ),
-            prefixIcon: Icon(Iconsax.calendar, color: Colors.blueAccent),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSeatsSelector() {
+    return Container(
+      padding: EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(15),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            spreadRadius: 1,
+            blurRadius: 10,
+            offset: Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            "Available Seats",
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w500,
+              color: Colors.grey[700],
+            ),
+          ),
+          SizedBox(height: 12),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: List.generate(5, (index) {
+              final seatNumber = index + 1;
+              final isSelected = availableSeats == seatNumber;
+
+              return GestureDetector(
+                onTap: () {
+                  setState(() {
+                    availableSeats = seatNumber;
+                  });
+                },
+                child: AnimatedContainer(
+                  duration: Duration(milliseconds: 200),
+                  width: 50,
+                  height: 50,
+                  decoration: BoxDecoration(
+                    color: isSelected ? Color(0xFF2C63FF) : Colors.grey[100],
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: isSelected ? Color(0xFF2C63FF) : Colors.grey[300]!,
+                      width: 2,
+                    ),
+                  ),
+                  child: Center(
+                    child: Text(
+                      "$seatNumber",
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: isSelected ? Colors.white : Colors.grey[700],
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            }),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Add this controller to your state variables
+  TextEditingController fareController = TextEditingController(text: "0.0");
+
+  Widget _buildFareField() {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(15),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            spreadRadius: 1,
+            blurRadius: 10,
+            offset: Offset(0, 3),
+          ),
+        ],
+      ),
+      child: TextField(
+        controller: fareController,
+        keyboardType: TextInputType.numberWithOptions(decimal: true),
+        decoration: InputDecoration(
+          labelText: "Fare per Seat",
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(15),
+            borderSide: BorderSide.none,
+          ),
+          contentPadding: EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+          prefixIcon: Container(
+            padding: EdgeInsets.all(12),
+            child: Icon(Iconsax.money, color: Color(0xFF2C63FF)),
+          ),
+          suffixText: "₹",
+          suffixStyle: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+            color: Color(0xFF2C63FF),
           ),
         ),
       ),
@@ -203,55 +394,107 @@ class _PublishRideScreenState extends State<PublishRideScreen> {
     );
   }
 
-  // Custom method to build the dropdown button for selecting passengers
-  Widget _buildDropdownButton() {
+
+  Widget _buildAnimatedPublishButton() {
     return Container(
+      width: double.infinity,
+      height: 60,
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(15),
+        gradient: LinearGradient(
+          colors: [Color(0xFF2C63FF), Color(0xFF3F8CFF)],
+          begin: Alignment.centerLeft,
+          end: Alignment.centerRight,
+        ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.1),
+            color: Color(0xFF2C63FF).withOpacity(0.3),
             spreadRadius: 1,
             blurRadius: 8,
-            offset: Offset(0, 3),
+            offset: Offset(0, 4),
           ),
         ],
       ),
-      child: DropdownButton<int>(
-        value: availableSeats,
-        items: List.generate(5, (index) {
-          return DropdownMenuItem(
-            value: index + 1,
-            child: Text("${index + 1} Passengers"),
-          );
-        }),
-        onChanged: (value) {
-          setState(() {
-            availableSeats = value!;
-          });
-        },
-        isExpanded: true,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(15),
+          onTap: _publishRide,
+          child: Center(
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Iconsax.send_1,
+                  color: Colors.white,
+                  size: 24,
+                ),
+                SizedBox(width: 12),
+                Text(
+                  'Publish Ride',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
 
-  // Custom method to build the Publish Ride button
-  Widget _buildPublishButton() {
-    return ElevatedButton(
-      onPressed: _publishRide,
-      style: ElevatedButton.styleFrom(
-        backgroundColor: Colors.blueAccent,
-        padding: EdgeInsets.symmetric(vertical: 16),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
-        minimumSize: Size(double.infinity, 60),
-      ),
-      child: Text(
-        'Publish Ride',
-        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-      ),
-    );
-  }
+  // Custom method to build the dropdown button for selecting passengers
+  // Widget _buildDropdownButton() {
+  //   return Container(
+  //     decoration: BoxDecoration(
+  //       color: Colors.white,
+  //       borderRadius: BorderRadius.circular(12),
+  //       boxShadow: [
+  //         BoxShadow(
+  //           color: Colors.black.withOpacity(0.1),
+  //           spreadRadius: 1,
+  //           blurRadius: 8,
+  //           offset: Offset(0, 3),
+  //         ),
+  //       ],
+  //     ),
+  //     child: DropdownButton<int>(
+  //       value: availableSeats,
+  //       items: List.generate(5, (index) {
+  //         return DropdownMenuItem(
+  //           value: index + 1,
+  //           child: Text("${index + 1} Passengers"),
+  //         );
+  //       }),
+  //       onChanged: (value) {
+  //         setState(() {
+  //           availableSeats = value!;
+  //         });
+  //       },
+  //       isExpanded: true,
+  //     ),
+  //   );
+  // }
+  //
+  // // Custom method to build the Publish Ride button
+  // Widget _buildPublishButton() {
+  //   return ElevatedButton(
+  //     onPressed: _publishRide,
+  //     style: ElevatedButton.styleFrom(
+  //       backgroundColor: Colors.blueAccent,
+  //       padding: EdgeInsets.symmetric(vertical: 16),
+  //       shape: RoundedRectangleBorder(
+  //         borderRadius: BorderRadius.circular(12),
+  //       ),
+  //       minimumSize: Size(double.infinity, 60),
+  //     ),
+  //     child: Text(
+  //       'Publish Ride',
+  //       style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+  //     ),
+  //   );
+  // }
 }
