@@ -78,6 +78,7 @@ dependencies:
   dart_webrtc: ^1.5.3
   google_fonts: ^6.2.1
   share_handler: ^0.0.22
+  confetti: ^0.8.0
 
 
 #-------------./ PACKAGES END ------------------#
