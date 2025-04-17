@@ -808,6 +808,22 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "3.3.1"
+  markdown:
+    dependency: transitive
+    description:
+      name: markdown
+      sha256: "935e23e1ff3bc02d390bad4d4be001208ee92cc217cb5b5a6c19bc14aaa318c1"
+      url: "https://pub.dev"
+    source: hosted
+    version: "7.3.0"
+  marker:
+    dependency: "direct main"
+    description:
+      name: marker
+      sha256: "3dadd01f3b0ffae148ffb3b1bc04290a98e54a465cddbab59727bd2a9fe57750"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.6.0"
   matcher:
     dependency: transitive
     description:

@@ -218,7 +218,7 @@ class BookingRepository {
         final passengerId = bookingData['passengerId'] as String;
 
         // Add notification
-        await _firestore.collection('notifications').add({
+        await _firestore.collection('chat_bot').add({
           'userId': passengerId,
           'title': 'Booking Accepted',
           'message': 'Your ride request has been accepted by the driver.',
@@ -245,7 +245,7 @@ class BookingRepository {
         final passengerId = bookingData['passengerId'] as String;
 
         // Add notification
-        await _firestore.collection('notifications').add({
+        await _firestore.collection('chat_bot').add({
           'userId': passengerId,
           'title': 'Booking Rejected',
           'message': 'Your ride request has been rejected by the driver.',
@@ -272,7 +272,7 @@ class BookingRepository {
         final passengerId = bookingData['passengerId'] as String;
 
         // Add notification
-        await _firestore.collection('notifications').add({
+        await _firestore.collection('chat_bot').add({
           'userId': passengerId,
           'title': 'Ride Completed',
           'message': 'Your ride has been marked as completed. Please rate your experience.',
@@ -304,7 +304,7 @@ class BookingRepository {
           final driverId = rideData['driverId'] as String;
 
           // Add notification
-          await _firestore.collection('notifications').add({
+          await _firestore.collection('chat_bot').add({
             'userId': driverId,
             'title': 'Booking Cancelled',
             'message': 'A passenger has cancelled their booking for your ride.',

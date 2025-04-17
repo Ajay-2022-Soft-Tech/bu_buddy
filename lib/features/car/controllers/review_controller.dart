@@ -154,7 +154,7 @@
 //     savePreferences();
 //   }
 //
-//   // Toggle notifications
+//   // Toggle chat_bot
 //   void toggleNotifications() {
 //     notificationsEnabled.value = !notificationsEnabled.value;
 //     savePreferences();
@@ -173,7 +173,7 @@
 //   final NotificationRepository _notificationRepo = NotificationRepository();
 //
 //   // Observable variables
-//   final notifications = <NotificationModel>[].obs;
+//   final chat_bot = <NotificationModel>[].obs;
 //   final unreadCount = 0.obs;
 //
 //   StreamSubscription? _notificationSubscription;
@@ -188,17 +188,17 @@
 //   void _setupNotificationListener() {
 //     _notificationSubscription = _notificationRepo.getNotifications().listen(
 //           (snapshot) {
-//         notifications.assignAll(
+//         chat_bot.assignAll(
 //           snapshot.docs.map((doc) => NotificationModel.fromSnapshot(doc)).toList(),
 //         );
 //
 //         // Update unread count
-//         unreadCount.value = notifications
+//         unreadCount.value = chat_bot
 //             .where((notification) => !notification.isRead)
 //             .length;
 //       },
 //       onError: (error) {
-//         print('Error loading notifications: $error');
+//         print('Error loading chat_bot: $error');
 //       },
 //     );
 //   }
@@ -212,16 +212,16 @@
 //     }
 //   }
 //
-//   // Mark all notifications as read
+//   // Mark all chat_bot as read
 //   Future<void> markAllAsRead() async {
 //     try {
-//       for (var notification in notifications) {
+//       for (var notification in chat_bot) {
 //         if (!notification.isRead) {
 //           await _notificationRepo.markAsRead(notification.id);
 //         }
 //       }
 //     } catch (e) {
-//       print('Error marking all notifications as read: $e');
+//       print('Error marking all chat_bot as read: $e');
 //     }
 //   }
 //

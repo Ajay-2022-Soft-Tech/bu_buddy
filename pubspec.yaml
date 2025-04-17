@@ -60,7 +60,7 @@ dependencies:
   geolocator_android: ^4.6.1
   #  google_places_autocomplete: ^0.0.4
 #  geolocator: ^8.2.0
-  google_maps_flutter: ^2.0.6
+  google_maps_flutter: ^2.12.1
   google_places_autocomplete_flutter: ^1.0.6  # Updated to the latest version
   get: ^4.6.5
   flutter_spinkit: ^5.1.0  # Add this line
@@ -79,6 +79,7 @@ dependencies:
   google_fonts: ^6.2.1
   share_handler: ^0.0.22
   confetti: ^0.8.0
+  marker: ^0.6.0
 
 
 #-------------./ PACKAGES END ------------------#

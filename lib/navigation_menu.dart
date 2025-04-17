@@ -1,7 +1,8 @@
 import 'package:bu_buddy/features/car/screens/available_rides/available_rides.dart';
 import 'package:bu_buddy/features/car/screens/home/find_a_ride.dart';
 import 'package:bu_buddy/features/car/screens/my_trips/my_trips.dart';
-import 'package:bu_buddy/features/personalization/screens/notifications/notifications.dart';
+import 'package:bu_buddy/features/car/screens/publish_ride/publish_ride.dart';
+import 'package:bu_buddy/features/personalization/screens/chat_bot/chat_bot.dart';
 import 'package:bu_buddy/features/personalization/screens/profile/profile.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -219,11 +220,11 @@ class _NavigationMenuState extends State<NavigationMenu> with TickerProviderStat
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceAround,
                   children: [
-                    _buildNavItem(0, Iconsax.home_15, Iconsax.home, 'Home', controller, darkMode),
-                    _buildNavItem(1, Iconsax.car5, Iconsax.car, 'Trips', controller, darkMode),
+                    _buildNavItem(0, Iconsax.home, Iconsax.home, 'Home', controller, darkMode),
+                    _buildNavItem(1, Iconsax.car, Iconsax.car, 'Trips', controller, darkMode),
                     const SizedBox(width: 60), // Space for FAB
-                    _buildNavItem(2, Iconsax.notification5, Iconsax.notification, 'Alerts', controller, darkMode),
-                    _buildNavItem(3, Iconsax.user_tick5, Iconsax.user, 'Profile', controller, darkMode),
+                    _buildNavItem(2, Iconsax.chart_3, Iconsax.chart_3, 'Bot', controller, darkMode),
+                    _buildNavItem(3, Iconsax.user, Iconsax.user, 'Profile', controller, darkMode),
                   ],
                 ),
               ),
@@ -457,7 +458,7 @@ class _NavigationMenuState extends State<NavigationMenu> with TickerProviderStat
                       color: Colors.green,
                       onTap: () {
                         Navigator.pop(context);
-                        // Navigate to offer ride screen
+                        Get.to(() => PublishRideScreen());
                       },
                       darkMode: darkMode,
                     ),
@@ -725,7 +726,7 @@ class NavigationController extends GetxController {
   final screens = [
     CarHomeScreen(),
     MyTripsScreen(),
-    NotificationsScreen(),
+    ChatbotScreen(),
     ProfileScreen(), // Changed from SettingsScreen to ProfileScreen for better UX
   ];
 }

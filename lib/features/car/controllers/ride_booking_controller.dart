@@ -114,7 +114,7 @@
 //       }
 //
 //       // Send notification to driver
-//       final notificationRef = _parent.firestore.collection('notifications').doc();
+//       final notificationRef = _parent.firestore.collection('chat_bot').doc();
 //       batch.set(notificationRef, {
 //         'userId': ride.driverId,
 //         'title': 'New Booking Request',
@@ -202,7 +202,7 @@
 //           .where('rideId', isEqualTo: rideId)
 //           .get();
 //
-//       // Start a batch write for notifications
+//       // Start a batch write for chat_bot
 //       final batch = _parent.firestore.batch();
 //
 //       // Notify all passengers
@@ -217,7 +217,7 @@
 //         });
 //
 //         // Add notification
-//         final notificationRef = _parent.firestore.collection('notifications').doc();
+//         final notificationRef = _parent.firestore.collection('chat_bot').doc();
 //         batch.set(notificationRef, {
 //           'userId': passengerId,
 //           'title': 'Ride Cancelled',
@@ -317,7 +317,7 @@
 //         });
 //
 //         // Send notification to driver
-//         final notificationRef = _parent.firestore.collection('notifications').doc();
+//         final notificationRef = _parent.firestore.collection('chat_bot').doc();
 //         batch.set(notificationRef, {
 //           'userId': rideData['driverId'],
 //           'title': 'Booking Cancelled',

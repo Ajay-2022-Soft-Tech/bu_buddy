@@ -4,7 +4,7 @@
 // import 'package:flutter_animate/flutter_animate.dart';
 // import 'package:get/get.dart';
 // import '../../../../../utils/constants/colors.dart';
-// import '../../../../personalization/screens/notifications/notifications.dart';
+// import '../../../../personalization/screens/chat_bot/chat_bot.dart';
 //
 // class HomeAppBar extends StatelessWidget implements PreferredSizeWidget {
 //   final bool showShadow;

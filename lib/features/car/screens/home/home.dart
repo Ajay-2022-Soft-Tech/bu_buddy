@@ -1,3 +1,4 @@
+import 'package:bu_buddy/features/personalization/screens/chat_bot/chat_bot.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -84,10 +85,10 @@ class _CarHomeScreenState extends State<CarHomeScreen> with SingleTickerProvider
           }
         }
 
-        // Check for notifications
+        // Check for chat_bot
         try {
           final notificationsSnapshot = await _firestore
-              .collection('notifications')
+              .collection('chat_bot')
               .where('userId', isEqualTo: currentUser!.uid)
               .where('read', isEqualTo: false)
               .limit(1)
@@ -95,7 +96,7 @@ class _CarHomeScreenState extends State<CarHomeScreen> with SingleTickerProvider
 
           _hasNotifications = notificationsSnapshot.docs.isNotEmpty;
         } catch (e) {
-          developer.log('Error fetching notifications: $e');
+          developer.log('Error fetching chat_bot: $e');
         }
       }
     } catch (e) {
@@ -183,9 +184,6 @@ class _CarHomeScreenState extends State<CarHomeScreen> with SingleTickerProvider
     return Scaffold(
       backgroundColor: Colors.black,
       extendBody: true,
-      bottomNavigationBar: _buildBottomNavigationBar(),
-      floatingActionButton: _buildFloatingActionButton(),
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
       body: Stack(
         children: [
           // Animated background
@@ -335,6 +333,9 @@ class _CarHomeScreenState extends State<CarHomeScreen> with SingleTickerProvider
                   icon: const Icon(Icons.notifications, color: Colors.white),
                   onPressed: () {
                     // Handle notifications
+                    () => Get.to(() => ChatbotScreen());
+
+
                   },
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints(),
@@ -918,154 +919,7 @@ class _CarHomeScreenState extends State<CarHomeScreen> with SingleTickerProvider
     );
   }
 
-  Widget _buildBottomNavigationBar() {
-    return Container(
-      height: 80,
-      decoration: BoxDecoration(
-        color: Colors.grey.shade900,
-        borderRadius: const BorderRadius.only(
-          topLeft: Radius.circular(20),
-          topRight: Radius.circular(20),
-        ),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: [
-          // Home button (active)
-          Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Container(
-                decoration: BoxDecoration(
-                  color: Colors.blue.withOpacity(0.2),
-                  shape: BoxShape.circle,
-                ),
-                padding: const EdgeInsets.all(8),
-                child: const Icon(
-                  Iconsax.home5,
-                  color: Colors.blue,
-                ),
-              ),
-              const SizedBox(height: 4),
-              const Text(
-                'Home',
-                style: TextStyle(
-                  color: Colors.blue,
-                  fontSize: 12,
-                ),
-              ),
-              Container(
-                width: 20,
-                height: 2,
-                decoration: BoxDecoration(
-                  color: Colors.blue,
-                  borderRadius: BorderRadius.circular(1),
-                ),
-              ),
-            ],
-          ),
 
-          // Trips button
-          Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              InkWell(
-                onTap: () => Get.to(() => MyTripsScreen()),
-                child: Column(
-                  children: [
-                    const Icon(
-                      Iconsax.car,
-                      color: Colors.grey,
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Trips',
-                      style: TextStyle(
-                        color: Colors.grey.shade400,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-
-          // Placeholder for FAB
-          const SizedBox(width: 10),
-
-          // Alerts button
-          Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(
-                Iconsax.notification,
-                color: Colors.grey,
-              ),
-              const SizedBox(height: 4),
-              Text(
-                'Alerts',
-                style: TextStyle(
-                  color: Colors.grey.shade400,
-                  fontSize: 12,
-                ),
-              ),
-            ],
-          ),
-
-          // Profile button
-          Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(
-                Iconsax.user,
-                color: Colors.grey,
-              ),
-              const SizedBox(height: 4),
-              Text(
-                'Profile',
-                style: TextStyle(
-                  color: Colors.grey.shade400,
-                  fontSize: 12,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildFloatingActionButton() {
-    return Container(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [Colors.blue.shade400, Colors.blue.shade700],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.blue.withOpacity(0.3),
-            blurRadius: 10,
-            spreadRadius: 2,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: FloatingActionButton(
-        onPressed: () => Get.to(() => PublishRideScreen())!.then((_) => _fetchRecentRides()),
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        child: const Icon(
-          Icons.add,
-          color: Colors.white,
-          size: 30,
-        ),
-      ),
-    );
-  }
 
   String _getGreeting() {
     final hour = DateTime.now().hour;

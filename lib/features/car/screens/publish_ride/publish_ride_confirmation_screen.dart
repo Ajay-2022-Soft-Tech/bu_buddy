@@ -1,365 +1,595 @@
+import 'package:bu_buddy/features/car/screens/home/home.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:lottie/lottie.dart';
+import 'package:confetti/confetti.dart';
+import 'dart:math' as math;
 
 import '../../models/ride_details.dart';
-import '../home/home.dart';
-import '../../../../../utils/constants/colors.dart';
-import '../../../../../utils/constants/sizes.dart';
+import '../my_trips/my_trips.dart';
 
-class RidePublishedConfirmationScreen extends StatelessWidget {
+class RidePublishedConfirmationScreen extends StatefulWidget {
   final RideDetails rideDetails;
 
-  const RidePublishedConfirmationScreen({Key? key, required this.rideDetails}) : super(key: key);
+  const RidePublishedConfirmationScreen({
+    Key? key,
+    required this.rideDetails,
+  }) : super(key: key);
+
+  @override
+  State<RidePublishedConfirmationScreen> createState() => _RidePublishedConfirmationScreenState();
+}
+
+class _RidePublishedConfirmationScreenState extends State<RidePublishedConfirmationScreen> with SingleTickerProviderStateMixin {
+  // Animation controllers
+  late AnimationController _backgroundController;
+  late ConfettiController _confettiController;
+
+  // Firebase instances
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+
+  // State variables
+  bool _isLoading = true;
+  RideDetails? _publishedRide;
+  String? _errorMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    _backgroundController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 20),
+    )..repeat();
+
+    _confettiController = ConfettiController(
+      duration: const Duration(seconds: 5),
+    )..play();
+
+    _fetchPublishedRide();
+  }
+
+  @override
+  void dispose() {
+    _backgroundController.dispose();
+    _confettiController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _fetchPublishedRide() async {
+    try {
+      final docSnapshot = await _firestore
+          .collection('rides')
+          .doc(widget.rideDetails.id)
+          .get();
+
+      if (docSnapshot.exists) {
+        final data = docSnapshot.data()!;
+        setState(() {
+          _publishedRide = RideDetails(
+            id: docSnapshot.id,
+            userId: data['userId'] ?? '',
+            userName: data['userName'] ?? 'Unknown',
+            userAvatar: data['userAvatar'] ?? '',
+            pickupLocation: data['pickupLocation'] ?? 'Unknown',
+            destinationLocation: data['destinationLocation'] ?? 'Unknown',
+            rideDate: data['rideDate'] ?? 'Unknown',
+            rideTime: data['rideTime'] ?? 'Unknown',
+            availableSeats: data['availableSeats'] ?? 0,
+            price: (data['price'] is num) ? (data['price'] as num).toDouble() : 0.0,
+            createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+            isActive: data['isActive'] ?? true,
+          );
+          _isLoading = false;
+          _errorMessage = null;
+        });
+      } else {
+        setState(() {
+          _isLoading = false;
+          _errorMessage = 'Ride not found';
+          _publishedRide = widget.rideDetails; // Fallback to the passed ride details
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+        _errorMessage = e.toString();
+        _publishedRide = widget.rideDetails; // Fallback to the passed ride details
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
     return Scaffold(
-      body: SafeArea(
-        child: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(TSizes.defaultSpace),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                // Success animation
-                // Lottie.network(
-                //   'https://assets4.lottiefiles.com/packages/lf20_touohxv0.json',
-                //   width: 200,
-                //   height: 200,
-                //   repeat: false,
-                // ).animate!.sc(
-                //   duration: 600.ms,
-                //   curve: Curves.elasticOut,
-                //   begin: Offset(0.5, 0.5),
-                //   end: Offset(1, 1),
-                // ),
+      backgroundColor: Colors.black,
+      extendBodyBehindAppBar: true,
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        automaticallyImplyLeading: false,
+      ),
+      body: Stack(
+        children: [
+          // Animated background
+          _buildAnimatedBackground(),
 
-                SizedBox(height: TSizes.spaceBtwSections - 10),
-
-                // Success title
-                Text(
-                  'Ride Published Successfully!',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                    color: TColors.primary,
-                  ),
-                ).animate().fadeIn(
-                  duration: 600.ms,
-                  delay: 400.ms,
-                ),
-
-                SizedBox(height: 8),
-
-                // Success subtitle
-                Text(
-                  'Your ride is now visible to other students',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 16,
-                    color: isDark ? Colors.grey.shade400 : Colors.grey.shade700,
-                  ),
-                ).animate().fadeIn(
-                  duration: 600.ms,
-                  delay: 600.ms,
-                ),
-
-                SizedBox(height: TSizes.spaceBtwSections),
-
-                // Ride details card
-                _buildRideDetailsCard(context, isDark)
-                    .animate().fadeIn(
-                  duration: 600.ms,
-                  delay: 800.ms,
-                )
-                    .slideY(
-                  begin: 50,
-                  end: 0,
-                  curve: Curves.easeOutQuad,
-                ),
-
-                SizedBox(height: TSizes.spaceBtwSections),
-
-                // Action buttons
-                _buildActionButtons(context, isDark)
-                    .animate().fadeIn(
-                  duration: 600.ms,
-                  delay: 1000.ms,
-                ),
+          // Confetti effect
+          Align(
+            alignment: Alignment.topCenter,
+            child: ConfettiWidget(
+              confettiController: _confettiController,
+              blastDirectionality: BlastDirectionality.explosive,
+              particleDrag: 0.05,
+              emissionFrequency: 0.05,
+              numberOfParticles: 20,
+              gravity: 0.1,
+              colors: const [
+                Colors.blue,
+                Colors.green,
+                Colors.purple,
+                Colors.orange,
+                Colors.pink,
+                Colors.red,
+                Colors.yellow,
               ],
             ),
           ),
-        ),
+
+          // Main content
+          SafeArea(
+            child: SingleChildScrollView(
+              physics: const BouncingScrollPhysics(),
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  children: [
+                    // Success animation
+                    _buildSuccessAnimation().animate()
+                        .fadeIn(duration: 800.ms)
+                        .scale(duration: 800.ms, curve: Curves.elasticOut),
+
+                    const SizedBox(height: 20),
+
+                    // Success message
+                    _buildSuccessMessage().animate()
+                        .fadeIn(duration: 600.ms, delay: 400.ms)
+                        .slideY(begin: 20, end: 0),
+
+                    const SizedBox(height: 40),
+
+                    // Ride summary
+                    if (_isLoading)
+                      _buildLoadingState()
+                    else if (_errorMessage != null && _publishedRide == null)
+                      _buildErrorState()
+                    else
+                      _buildRideSummary().animate()
+                          .fadeIn(duration: 600.ms, delay: 800.ms)
+                          .slideY(begin: 30, end: 0),
+
+                    const SizedBox(height: 40),
+
+                    // Action buttons
+                    _buildActionButtons().animate()
+                        .fadeIn(duration: 600.ms, delay: 1200.ms)
+                        .slideY(begin: 30, end: 0),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
 
-  Widget _buildRideDetailsCard(BuildContext context, bool isDark) {
+  Widget _buildAnimatedBackground() {
+    return AnimatedBuilder(
+      animation: _backgroundController,
+      builder: (context, child) {
+        return CustomPaint(
+          painter: BackgroundPainter(
+            animation: _backgroundController.value,
+            isSuccess: true,
+          ),
+          child: Container(
+            width: double.infinity,
+            height: double.infinity,
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildSuccessAnimation() {
+    return Lottie.network(
+      'https://assets10.lottiefiles.com/packages/lf20_s2lryxtd.json',
+      width: 200,
+      height: 200,
+      repeat: false,
+    );
+  }
+
+  Widget _buildSuccessMessage() {
+    return Column(
+      children: [
+        Text(
+          'Ride Published!',
+          style: GoogleFonts.poppins(
+            fontSize: 28,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
+        ),
+        const SizedBox(height: 10),
+        Text(
+          'Your ride is now live and visible to other travelers',
+          textAlign: TextAlign.center,
+          style: GoogleFonts.poppins(
+            fontSize: 16,
+            color: Colors.grey.shade400,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildLoadingState() {
     return Container(
-      padding: EdgeInsets.all(TSizes.lg),
+      width: double.infinity,
+      padding: const EdgeInsets.all(30),
       decoration: BoxDecoration(
-        color: isDark ? Colors.grey.shade800 : Colors.white,
-        borderRadius: BorderRadius.circular(TSizes.cardRadiusLg),
+        color: Colors.grey.shade900.withOpacity(0.7),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: Colors.grey.shade800,
+          width: 1,
+        ),
+      ),
+      child: Column(
+        children: [
+          const CircularProgressIndicator(
+            color: Colors.blue,
+          ),
+          const SizedBox(height: 20),
+          Text(
+            'Fetching ride details...',
+            style: GoogleFonts.poppins(
+              color: Colors.white,
+              fontSize: 16,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildErrorState() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(30),
+      decoration: BoxDecoration(
+        color: Colors.red.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: Colors.red.withOpacity(0.3),
+          width: 1,
+        ),
+      ),
+      child: Column(
+        children: [
+          const Icon(
+            Iconsax.warning_2,
+            color: Colors.red,
+            size: 50,
+          ),
+          const SizedBox(height: 20),
+          Text(
+            'Error fetching ride details',
+            style: GoogleFonts.poppins(
+              color: Colors.white,
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            _errorMessage ?? 'An unknown error occurred',
+            textAlign: TextAlign.center,
+            style: GoogleFonts.poppins(
+              color: Colors.grey.shade400,
+              fontSize: 14,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRideSummary() {
+    final ride = _publishedRide ?? widget.rideDetails;
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade900.withOpacity(0.7),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: Colors.grey.shade700,
+          width: 1,
+        ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withOpacity(0.2),
             blurRadius: 10,
-            spreadRadius: 0,
-            offset: Offset(0, 4),
+            offset: const Offset(0, 5),
           ),
         ],
       ),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Route
-          _buildDetailRow(
-            icon: Iconsax.location,
-            title: 'From',
-            subtitle: rideDetails.pickupLocation,
-            color: Colors.blue,
-            isDark: isDark,
+          Text(
+            'Ride Summary',
+            style: GoogleFonts.poppins(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+            ),
           ),
+          const SizedBox(height: 15),
 
-          _buildDivider(isDark),
-
-          _buildDetailRow(
-            icon: Iconsax.location_tick,
-            title: 'To',
-            subtitle: rideDetails.destinationLocation,
-            color: Colors.red,
-            isDark: isDark,
-          ),
-
-          _buildDivider(isDark),
-
-          // Date, time and seats
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              _buildDetailColumn(
-                icon: Iconsax.calendar,
-                title: 'Date',
-                subtitle: rideDetails.rideDate,
-                color: Colors.purple,
-                isDark: isDark,
-              ),
-              _buildDetailColumn(
-                icon: Iconsax.clock,
-                title: 'Time',
-                subtitle: rideDetails.rideTime,
-                color: Colors.orange,
-                isDark: isDark,
-              ),
-              _buildDetailColumn(
-                icon: Iconsax.people,
-                title: 'Seats',
-                subtitle: '${rideDetails.availableSeats}',
-                color: Colors.green,
-                isDark: isDark,
-              ),
-            ],
-          ),
-
-          _buildDivider(isDark),
-
-          // Price
+          // Route information
           Row(
             children: [
-              Container(
-                padding: EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.teal.withOpacity(0.1),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  Iconsax.money,
-                  color: Colors.teal,
-                  size: 24,
-                ),
-              ),
-              SizedBox(width: 16),
               Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    'Price',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
+                  Container(
+                    width: 12,
+                    height: 12,
+                    decoration: BoxDecoration(
+                      color: Colors.blue.withOpacity(0.3),
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: Colors.blue,
+                        width: 2,
+                      ),
                     ),
                   ),
-                  Text(
-                    '₹${rideDetails.price.toStringAsFixed(0)} per seat',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: isDark ? Colors.white : Colors.black87,
+                  Container(
+                    width: 2,
+                    height: 40,
+                    color: Colors.grey.withOpacity(0.3),
+                  ),
+                  Container(
+                    width: 12,
+                    height: 12,
+                    decoration: BoxDecoration(
+                      color: Colors.red.withOpacity(0.3),
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: Colors.red,
+                        width: 2,
+                      ),
                     ),
                   ),
                 ],
               ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'FROM',
+                      style: GoogleFonts.poppins(
+                        color: Colors.grey.shade500,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    Text(
+                      ride.pickupLocation,
+                      style: GoogleFonts.poppins(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 20),
+                    Text(
+                      'TO',
+                      style: GoogleFonts.poppins(
+                        color: Colors.grey.shade500,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    Text(
+                      ride.destinationLocation,
+                      style: GoogleFonts.poppins(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
             ],
+          ),
+
+          const SizedBox(height: 20),
+
+          // Ride details
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              _buildDetailChip(
+                icon: Iconsax.calendar,
+                label: ride.rideDate,
+                color: Colors.purple,
+              ),
+              _buildDetailChip(
+                icon: Iconsax.clock,
+                label: ride.rideTime,
+                color: Colors.amber,
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 15),
+
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              _buildDetailChip(
+                icon: Iconsax.people,
+                label: '${ride.availableSeats} seats',
+                color: Colors.orange,
+              ),
+              _buildDetailChip(
+                icon: Iconsax.money,
+                label: '₹${ride.price.toStringAsFixed(0)}',
+                color: Colors.green,
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 20),
+
+          // Status badge
+          Center(
+            child: Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 8,
+              ),
+              decoration: BoxDecoration(
+                color: Colors.green.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color: Colors.green.withOpacity(0.5),
+                  width: 1,
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(
+                    Iconsax.tick_circle,
+                    color: Colors.green,
+                    size: 18,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Active & Ready',
+                    style: GoogleFonts.poppins(
+                      color: Colors.green,
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildDetailRow({
+  Widget _buildDetailChip({
     required IconData icon,
-    required String title,
-    required String subtitle,
+    required String label,
     required Color color,
-    required bool isDark,
   }) {
-    return Row(
-      children: [
-        Container(
-          padding: EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: color.withOpacity(0.1),
-            shape: BoxShape.circle,
-          ),
-          child: Icon(
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: 16,
+        vertical: 8,
+      ),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(15),
+        border: Border.all(
+          color: color.withOpacity(0.3),
+          width: 1,
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
             icon,
             color: color,
-            size: 24,
+            size: 16,
           ),
-        ),
-        SizedBox(width: 16),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              title,
-              style: TextStyle(
-                fontSize: 14,
-                color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
-              ),
+          const SizedBox(width: 8),
+          Text(
+            label,
+            style: GoogleFonts.poppins(
+              color: color,
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
             ),
-            Text(
-              subtitle,
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-                color: isDark ? Colors.white : Colors.black87,
-              ),
-            ),
-          ],
-        ),
-      ],
+          ),
+        ],
+      ),
     );
   }
 
-  Widget _buildDetailColumn({
-    required IconData icon,
-    required String title,
-    required String subtitle,
-    required Color color,
-    required bool isDark,
-  }) {
+  Widget _buildActionButtons() {
     return Column(
       children: [
         Container(
-          padding: EdgeInsets.all(10),
+          width: double.infinity,
+          height: 55,
           decoration: BoxDecoration(
-            color: color.withOpacity(0.1),
-            shape: BoxShape.circle,
-          ),
-          child: Icon(
-            icon,
-            color: color,
-            size: 20,
-          ),
-        ),
-        SizedBox(height: 8),
-        Text(
-          title,
-          style: TextStyle(
-            fontSize: 12,
-            color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
-          ),
-        ),
-        Text(
-          subtitle,
-          style: TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.bold,
-            color: isDark ? Colors.white : Colors.black87,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildDivider(bool isDark) {
-    return Divider(
-      height: 30,
-      color: isDark ? Colors.grey.shade700 : Colors.grey.shade200,
-    );
-  }
-
-  Widget _buildActionButtons(BuildContext context, bool isDark) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        // Back to home button
-        Expanded(
-          child: OutlinedButton(
-            onPressed: () => Get.offAll(() => CarHomeScreen()),
-            style: OutlinedButton.styleFrom(
-              foregroundColor: TColors.primary,
-              side: BorderSide(color: TColors.primary, width: 2),
-              padding: EdgeInsets.symmetric(vertical: 16),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-              ),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Iconsax.home),
-                SizedBox(width: 8),
-                Text(
-                  'Home',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
+            gradient: LinearGradient(
+              colors: [
+                Colors.blue.shade700,
+                Colors.blue.shade500,
               ],
+              begin: Alignment.bottomLeft,
+              end: Alignment.topRight,
             ),
+            borderRadius: BorderRadius.circular(15),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.blue.withOpacity(0.3),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
           ),
-        ),
-
-        SizedBox(width: 16),
-
-        // Share ride button
-        Expanded(
           child: ElevatedButton(
-            onPressed: () => null,
+            onPressed: () => Get.to(() => MyTripsScreen()),
             style: ElevatedButton.styleFrom(
-              backgroundColor: TColors.primary,
+              backgroundColor: Colors.transparent,
               foregroundColor: Colors.white,
-              padding: EdgeInsets.symmetric(vertical: 16),
+              elevation: 0,
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(15),
               ),
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(Iconsax.share),
-                SizedBox(width: 8),
+                const Icon(Iconsax.car),
+                const SizedBox(width: 10),
                 Text(
-                  'Share',
-                  style: TextStyle(
+                  'View My Rides',
+                  style: GoogleFonts.poppins(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
                   ),
@@ -368,24 +598,158 @@ class RidePublishedConfirmationScreen extends StatelessWidget {
             ),
           ),
         ),
+        const SizedBox(height: 16),
+        TextButton(
+          onPressed: () => Get.offAll(() => CarHomeScreen()),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Iconsax.home),
+              const SizedBox(width: 8),
+              Text(
+                'Back to Home',
+                style: GoogleFonts.poppins(
+                  fontSize: 16,
+                ),
+              ),
+            ],
+          ),
+        ),
       ],
     );
   }
+}
 
-//   void _shareRideDetails() {
-//     final shareText = '''
-// 🚗 Carpooling Ride Share 🚗
-//
-// From: ${rideDetails.pickupLocation}
-// To: ${rideDetails.destinationLocation}
-// Date: ${rideDetails.rideDate}
-// Time: ${rideDetails.rideTime}
-// Available Seats: ${rideDetails.availableSeats}
-// Price: ₹${rideDetails.price.toStringAsFixed(0)} per seat
-//
-// Join me for this ride in the Student Carpooling App!
-// ''';
-//
-//     Share.share(shareText);
-//   }
+class BackgroundPainter extends CustomPainter {
+  final double animation;
+  final bool isSuccess;
+
+  BackgroundPainter({required this.animation, this.isSuccess = false});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint();
+
+    // Base gradient background
+    final rect = Rect.fromLTWH(0, 0, size.width, size.height);
+    final gradient = LinearGradient(
+      colors: [
+        isSuccess ? const Color(0xFF0A2239) : const Color(0xFF101010),
+        isSuccess ? const Color(0xFF153B50) : const Color(0xFF1A1A1A),
+      ],
+      begin: Alignment.topCenter,
+      end: Alignment.bottomCenter,
+    );
+
+    paint.shader = gradient.createShader(rect);
+    canvas.drawRect(rect, paint);
+
+    // Draw animated particles
+    _drawParticles(canvas, size, paint);
+
+    // Draw animated waves at bottom
+    _drawWaves(canvas, size, paint);
+  }
+
+  void _drawParticles(Canvas canvas, Size size, Paint paint) {
+    final random = math.Random(42);
+
+    // Different color particles
+    final colors = isSuccess
+        ? [
+      Colors.blue.withOpacity(0.2),
+      Colors.green.withOpacity(0.2),
+      Colors.cyan.withOpacity(0.2),
+    ]
+        : [
+      Colors.blue.withOpacity(0.15),
+      Colors.purple.withOpacity(0.1),
+      Colors.cyan.withOpacity(0.1),
+    ];
+
+    for (int i = 0; i < 50; i++) {
+      final xPos = size.width * random.nextDouble();
+      final yPos = size.height * random.nextDouble();
+      final radius = 1.0 + 3.0 * math.sin(animation * 2 * math.pi + i);
+
+      paint.color = colors[i % colors.length];
+
+      canvas.drawCircle(
+        Offset(xPos, yPos),
+        radius,
+        paint,
+      );
+    }
+
+    // Draw larger glowing particles
+    for (int i = 0; i < 15; i++) {
+      final xPos = size.width * random.nextDouble();
+      final yPos = size.height * random.nextDouble();
+      final baseRadius = 3.0 + random.nextDouble() * 8;
+      final radius = baseRadius + 3.0 * math.sin(animation * 2 * math.pi + i);
+
+      // Glow effect
+      final color = colors[i % colors.length];
+      final glowPaint = Paint()
+        ..color = color.withOpacity(0.4)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 15);
+
+      canvas.drawCircle(
+        Offset(xPos, yPos),
+        radius * 2,
+        glowPaint,
+      );
+
+      // Core
+      paint.color = color.withOpacity(0.8);
+      canvas.drawCircle(
+        Offset(xPos, yPos),
+        radius,
+        paint,
+      );
+    }
+  }
+
+  void _drawWaves(Canvas canvas, Size size, Paint paint) {
+    final animValue = animation * 2 * math.pi;
+
+    // First wave
+    paint.color = isSuccess
+        ? Colors.blue.withOpacity(0.15)
+        : Colors.blue.withOpacity(0.05);
+    var path = Path();
+    path.moveTo(0, size.height * 0.85);
+
+    for (double x = 0; x <= size.width; x++) {
+      final y = size.height * (0.85 + 0.05 * math.sin(x / 50 + animValue));
+      path.lineTo(x, y);
+    }
+
+    path.lineTo(size.width, size.height);
+    path.lineTo(0, size.height);
+    path.close();
+
+    canvas.drawPath(path, paint);
+
+    // Second wave
+    paint.color = isSuccess
+        ? Colors.green.withOpacity(0.15)
+        : Colors.purple.withOpacity(0.05);
+    path = Path();
+    path.moveTo(0, size.height * 0.9);
+
+    for (double x = 0; x <= size.width; x++) {
+      final y = size.height * (0.9 + 0.04 * math.sin(x / 40 - animValue * 0.8));
+      path.lineTo(x, y);
+    }
+
+    path.lineTo(size.width, size.height);
+    path.lineTo(0, size.height);
+    path.close();
+
+    canvas.drawPath(path, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
 }

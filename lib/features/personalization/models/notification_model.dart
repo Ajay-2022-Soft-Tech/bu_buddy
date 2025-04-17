@@ -13,7 +13,7 @@ class RideNotification {
     required this.timestamp,
   });
 
-  // Static method to generate a list of notifications for demo purposes
+  // Static method to generate a list of chat_bot for demo purposes
   static List<RideNotification> getDemoNotifications() {
     return [
       RideNotification(
