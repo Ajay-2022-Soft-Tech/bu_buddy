@@ -18,7 +18,6 @@ class _RideOfferSliderState extends State<RideOfferSlider> {
 
   final List<Map<String, dynamic>> _offerData = [
     {
-      'discount': '40% OFF',
       'from': 'Campus Main Gate',
       'to': 'City Center Mall',
       'time': '10:30 AM',
@@ -29,7 +28,6 @@ class _RideOfferSliderState extends State<RideOfferSlider> {
       'rating': 4.8,
     },
     {
-      'discount': '25% OFF',
       'from': 'College Hostel',
       'to': 'Railway Station',
       'time': '12:15 PM',
@@ -40,7 +38,6 @@ class _RideOfferSliderState extends State<RideOfferSlider> {
       'rating': 4.7,
     },
     {
-      'discount': '30% OFF',
       'from': 'Metro Station',
       'to': 'Campus Library',
       'time': '2:00 PM',
@@ -58,9 +55,7 @@ class _RideOfferSliderState extends State<RideOfferSlider> {
     _pageController.addListener(() {
       int next = _pageController.page!.round();
       if (_currentPage != next) {
-        setState(() {
-          _currentPage = next;
-        });
+        setState(() => _currentPage = next);
       }
     });
   }
@@ -82,8 +77,9 @@ class _RideOfferSliderState extends State<RideOfferSlider> {
           child: Text(
             "Available Rides",
             style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.bold,
-                color: Theme.of(context).colorScheme.primary),
+              fontWeight: FontWeight.bold,
+              color: Theme.of(context).colorScheme.primary,
+            ),
           ),
         ),
         SizedBox(height: TSizes.spaceBtwItems / 2),
@@ -92,9 +88,7 @@ class _RideOfferSliderState extends State<RideOfferSlider> {
           child: PageView.builder(
             controller: _pageController,
             itemCount: _offerData.length,
-            itemBuilder: (context, index) {
-              return FeatureCard(offerData: _offerData[index]);
-            },
+            itemBuilder: (context, index) => FeatureCard(offerData: _offerData[index]),
           ),
         ),
         SizedBox(height: TSizes.spaceBtwItems / 2),
@@ -124,10 +118,7 @@ class _RideOfferSliderState extends State<RideOfferSlider> {
 class FeatureCard extends StatelessWidget {
   final Map<String, dynamic> offerData;
 
-  const FeatureCard({
-    Key? key,
-    required this.offerData,
-  }) : super(key: key);
+  const FeatureCard({Key? key, required this.offerData}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
@@ -180,7 +171,6 @@ class FeatureCard extends StatelessWidget {
 
   Widget _buildCardHeader(BuildContext context, bool isDark) {
     return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         Flexible(
           child: Row(
@@ -213,28 +203,6 @@ class FeatureCard extends StatelessWidget {
             ],
           ),
         ),
-        Container(
-          padding: const EdgeInsets.symmetric(
-            horizontal: 10,
-            vertical: 4,
-          ),
-          decoration: BoxDecoration(
-            color: Colors.green.withOpacity(isDark ? 0.2 : 0.1),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: Colors.green.withOpacity(isDark ? 0.4 : 0.3),
-              width: 1,
-            ),
-          ),
-          child: Text(
-            offerData['discount'],
-            style: TextStyle(
-              color: isDark ? Colors.green.shade400 : Colors.green.shade700,
-              fontWeight: FontWeight.bold,
-              fontSize: TSizes.fontSizeSm - 1,
-            ),
-          ),
-        ),
       ],
     );
   }
@@ -255,12 +223,7 @@ class FeatureCard extends StatelessWidget {
             offset: const Offset(0, 2),
           ),
         ],
-        border: isDark
-            ? Border.all(
-          color: Colors.grey.shade700,
-          width: 1,
-        )
-            : null,
+        border: isDark ? Border.all(color: Colors.grey.shade700, width: 1) : null,
       ),
       child: Padding(
         padding: const EdgeInsets.all(10),
@@ -302,11 +265,12 @@ class FeatureCard extends StatelessWidget {
               ),
             ),
             Divider(
-                color: isDark
-                    ? Colors.grey.withOpacity(0.4)
-                    : Colors.grey.withOpacity(0.3),
-                height: 12,
-                thickness: 0.5),
+              color: isDark
+                  ? Colors.grey.withOpacity(0.4)
+                  : Colors.grey.withOpacity(0.3),
+              height: 12,
+              thickness: 0.5,
+            ),
             _buildInfoChipsRow(context, isDark),
           ],
         ),
@@ -318,7 +282,6 @@ class FeatureCard extends StatelessWidget {
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.start,
         children: [
           _buildInfoChip(
             icon: Icons.access_time_rounded,
@@ -346,7 +309,12 @@ class FeatureCard extends StatelessWidget {
   }
 
   Widget _buildRouteInfo(
-      String title, String value, IconData icon, Color color, bool isDark) {
+      String title,
+      String value,
+      IconData icon,
+      Color color,
+      bool isDark,
+      ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
@@ -404,11 +372,7 @@ class FeatureCard extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(
-            icon,
-            size: 10,
-            color: color,
-          ),
+          Icon(icon, size: 10, color: color),
           SizedBox(width: 4),
           Text(
             label,
@@ -424,11 +388,8 @@ class FeatureCard extends StatelessWidget {
   }
 
   Widget _buildCardFooter(BuildContext context, bool isDark) {
-    final String studentId = offerData['studentId'] ?? 'student_${offerData['student'].hashCode}';
-    final String studentName = offerData['student'];
-
     return SizedBox(
-      height: 44, // Fixed height to ensure consistency
+      height: 44,
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
@@ -450,7 +411,6 @@ class FeatureCard extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
-                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Text(
                         offerData['student'],
@@ -464,11 +424,7 @@ class FeatureCard extends StatelessWidget {
                       Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(
-                            Icons.star,
-                            size: 10,
-                            color: Colors.amber,
-                          ),
+                          Icon(Icons.star, size: 10, color: Colors.amber),
                           SizedBox(width: 2),
                           Text(
                             offerData['rating'].toString(),
@@ -488,7 +444,12 @@ class FeatureCard extends StatelessWidget {
             ),
           ),
           ElevatedButton(
-            onPressed: () => _showJoinRideConfirmation(context, studentId, studentName, offerData),
+            onPressed: () => _showJoinRideConfirmation(
+              context,
+              offerData['studentId'] ?? 'student_${offerData['student'].hashCode}',
+              offerData['student'],
+              offerData,
+            ),
             style: ElevatedButton.styleFrom(
               backgroundColor: TColors.primary,
               foregroundColor: Colors.white,
@@ -513,7 +474,12 @@ class FeatureCard extends StatelessWidget {
     );
   }
 
-  void _showJoinRideConfirmation(BuildContext context, String studentId, String studentName, Map<String, dynamic> rideDetails) {
+  void _showJoinRideConfirmation(
+      BuildContext context,
+      String studentId,
+      String studentName,
+      Map<String, dynamic> rideDetails,
+      ) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     showDialog(
@@ -525,10 +491,7 @@ class FeatureCard extends StatelessWidget {
           children: [
             Icon(Icons.directions_car_filled, color: TColors.primary),
             SizedBox(width: 10),
-            Text(
-              'Confirm Ride',
-              style: TextStyle(fontWeight: FontWeight.bold),
-            ),
+            Text('Confirm Ride', style: TextStyle(fontWeight: FontWeight.bold)),
           ],
         ),
         content: Column(
@@ -584,9 +547,7 @@ class FeatureCard extends StatelessWidget {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            style: TextButton.styleFrom(
-              foregroundColor: Colors.grey,
-            ),
+            style: TextButton.styleFrom(foregroundColor: Colors.grey),
             child: Text('Cancel'),
           ),
           ElevatedButton(
@@ -610,7 +571,8 @@ class FeatureCard extends StatelessWidget {
     );
   }
 
-  Widget _buildConfirmationDetail(IconData icon, String text, Color color, bool isDark) {
+  Widget _buildConfirmationDetail(
+      IconData icon, String text, Color color, bool isDark) {
     return Row(
       children: [
         Icon(icon, size: 16, color: color),

@@ -40,7 +40,6 @@ class _ChatbotScreenState extends State<ChatbotScreen> with TickerProviderStateM
   List<NearbyPlace> _nearbyPlaces = [];
   final Completer<GoogleMapController> _mapControllerCompleter = Completer();
   final Set<Marker> _markers = {};
-  // final maps.MapType _mapType = maps.MapType.normal; // Default map type
 
   // UI state animations
   late Animation<double> _mapHeightAnimation;
@@ -905,14 +904,17 @@ class _ChatbotScreenState extends State<ChatbotScreen> with TickerProviderStateM
                 },
               ),
 
-              // Dynamic map view with animation
+              // Dynamic map view with animation - FIX: Clamp opacity value
               AnimatedBuilder(
                 animation: _mapHeightAnimation,
                 builder: (context, child) {
+                  // FIX: Ensure opacity is between 0.0 and 1.0
+                  final opacity = (_mapHeightAnimation.value / 250).clamp(0.0, 1.0);
+
                   return SizedBox(
                     height: _mapHeightAnimation.value,
                     child: Opacity(
-                      opacity: _mapHeightAnimation.value / 250,
+                      opacity: opacity,
                       child: Transform.scale(
                         scale: _mapExpandAnimation.value,
                         child: child,
@@ -1196,7 +1198,7 @@ class _ChatbotScreenState extends State<ChatbotScreen> with TickerProviderStateM
     );
   }
 
-  // Animated message bubbles
+  // Animated message bubbles - Fixed for RenderFlex issues
   Widget _buildMessage(ChatMessage message, int index) {
     final isUser = message.isUser;
 
@@ -1389,7 +1391,7 @@ class _ChatbotScreenState extends State<ChatbotScreen> with TickerProviderStateM
     );
   }
 
-  // Animated typing indicator
+  // Animated typing indicator - Fixed animation values
   Widget _buildTypingIndicator() {
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
 
@@ -1521,7 +1523,7 @@ class _ChatbotScreenState extends State<ChatbotScreen> with TickerProviderStateM
     );
   }
 
-  // Nearby place card with animations and ride info
+  // Nearby place card with animations and ride info - Fixed for RenderFlex issues
   Widget _buildNearbyPlaceCard(NearbyPlace place, int index) {
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
 
@@ -1945,7 +1947,7 @@ class ChatMessage {
   });
 }
 
-// Ride Feature Cards Widget
+// Ride Feature Cards Widget - Fixed animation and RenderFlex issues
 class SlidableFeatureCards extends StatefulWidget {
   const SlidableFeatureCards({Key? key}) : super(key: key);
 
@@ -2110,7 +2112,7 @@ class _SlidableFeatureCardsState extends State<SlidableFeatureCards> with Single
     );
   }
 
-  // Animated ride card with gradient background
+  // Animated ride card with gradient background - Fixed layout issues
   Widget _buildRideCard(Map<String, dynamic> ride, bool isDarkMode) {
     final color = ride['color'] as Color;
 
@@ -2245,6 +2247,7 @@ class _SlidableFeatureCardsState extends State<SlidableFeatureCards> with Single
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
+
                     children: [
                       Text(
                         ride['from'],

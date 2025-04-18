@@ -10,7 +10,9 @@ class RideDetails {
   final int availableSeats;
   final double price;
   final DateTime createdAt;
+  final bool isJoined;
   final bool isActive;
+  final bool isOwner;
 
   RideDetails({
     this.id = '',
@@ -23,6 +25,8 @@ class RideDetails {
     required this.rideTime,
     required this.availableSeats,
     required this.price,
+    this.isOwner = false,
+    this.isJoined = false,
     DateTime? createdAt,
     this.isActive = true,
   }) : this.createdAt = createdAt ?? DateTime.now();

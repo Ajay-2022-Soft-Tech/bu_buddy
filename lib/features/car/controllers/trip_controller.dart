@@ -1,301 +1,162 @@
+import 'dart:async';
+
 import 'package:get/get.dart';
-import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:url_launcher/url_launcher.dart';
-import 'package:intl/intl.dart';
-
 import '../models/ride_details.dart';
+import '../repository/ride_service.dart';
 
 class TripController extends GetxController {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
+  final RideService _rideService = RideService();
 
   final RxBool isLoading = false.obs;
-  final RxBool isIndexError = false.obs;
-  final RxString indexUrl = "".obs;
   final RxList<RideDetails> upcomingTrips = <RideDetails>[].obs;
   final RxList<RideDetails> pastTrips = <RideDetails>[].obs;
+
+  // Stream subscriptions to track
+  late StreamSubscription<List<RideDetails>> _joinedRidesSubscription;
 
   @override
   void onInit() {
     super.onInit();
     fetchTrips();
+
+    // Listen for changes in joined rides
+    _joinedRidesSubscription = _rideService.getJoinedRidesStream().listen((joinedRides) {
+      // When joined rides change, we need to refresh our trips
+      _updateTripsWithJoinedRides(joinedRides);
+    });
+  }
+
+  @override
+  void onClose() {
+    _joinedRidesSubscription.cancel();
+    super.onClose();
   }
 
   Future<void> fetchTrips() async {
+    if (_auth.currentUser == null) return;
+
     isLoading.value = true;
-    isIndexError.value = false;
 
     try {
-      final userId = _auth.currentUser?.uid;
-      if (userId == null) {
-        throw Exception('User not logged in');
-      }
+      // Get published rides (rides created by the user)
+      final publishedRidesSnapshot = await _firestore
+          .collection('rides')
+          .where('userId', isEqualTo: _auth.currentUser!.uid)
+          .get();
 
-      // Fetch published rides (rides created by the current user)
-      final publishedRides = await _getPublishedRides(userId);
+      // Process the published rides
+      final List<RideDetails> publishedRides = publishedRidesSnapshot.docs.map((doc) {
+        final data = doc.data();
+        return RideDetails(
+          id: doc.id,
+          userId: data['userId'] ?? '',
+          userName: data['userName'] ?? 'Unknown',
+          userAvatar: data['userAvatar'] ?? '',
+          pickupLocation: data['pickupLocation'] ?? 'Unknown',
+          destinationLocation: data['destinationLocation'] ?? 'Unknown',
+          rideDate: data['rideDate'] ?? 'Unknown',
+          rideTime: data['rideTime'] ?? 'Unknown',
+          availableSeats: data['availableSeats'] ?? 0,
+          price: (data['price'] is num) ? (data['price'] as num).toDouble() : 0.0,
+          createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+          isActive: data['isActive'] ?? true,
+          isJoined: false,
+          isOwner: true,
+        );
+      }).toList();
 
-      // Fetch booked rides (rides where the current user is a passenger)
-      final bookedRides = await _getBookedRides(userId);
+      // Get joined rides
+      final joinedRides = await _rideService.getJoinedRidesStream().first;
 
-      // Sort and categorize all trips
-      _processRidesList([...publishedRides, ...bookedRides]);
+      // Combine both types of rides and filter into upcoming and past
+      final allRides = [...publishedRides, ...joinedRides];
+
+      // Sort rides by date and time
+      _sortAndFilterRides(allRides);
 
     } catch (e) {
-      _handleFetchError(e);
+      print('Error fetching trips: $e');
     } finally {
       isLoading.value = false;
     }
   }
 
-  // Modified to avoid complex queries requiring indexes
-  Future<List<RideDetails>> _getPublishedRides(String userId) async {
-    try {
-      // Simplified query to avoid index requirements
-      final querySnapshot = await _firestore
-          .collection('rides')
-          .where('userId', isEqualTo: userId)
-          .get();
+  void _updateTripsWithJoinedRides(List<RideDetails> joinedRides) {
+    // Get existing published rides (not joined ones)
+    final publishedUpcoming = upcomingTrips.where((trip) => !trip.isJoined).toList();
+    final publishedPast = pastTrips.where((trip) => !trip.isJoined).toList();
 
-      return querySnapshot.docs
-          .map((doc) => RideDetails.fromMap(doc.data(), doc.id))
-          .toList();
-    } catch (e) {
-      print('Error fetching published rides: $e');
-      rethrow;
-    }
+    // Add joined rides to the lists
+    final allRides = [...publishedUpcoming, ...publishedPast, ...joinedRides];
+
+    // Re-sort and filter
+    _sortAndFilterRides(allRides);
   }
 
-  Future<List<RideDetails>> _getBookedRides(String userId) async {
-    try {
-      // Simplified query for booked rides
-      final chatSnapshot = await _firestore
-          .collection('chats')
-          .where('participants', arrayContains: userId)
-          .get();
+  void _sortAndFilterRides(List<RideDetails> allRides) {
+    // Parse dates for comparison
+    DateTime now = DateTime.now();
 
-      final List<RideDetails> bookedRides = [];
-
-      for (final chatDoc in chatSnapshot.docs) {
-        final data = chatDoc.data();
-
-        // Skip if chat doesn't have ride info
-        if (!data.containsKey('ride') || data['ride'] == null) continue;
-
-        final rideMap = data['ride'] as Map<String, dynamic>;
-        if (rideMap.isEmpty) continue;
-
-        // Get the other participant (likely the ride creator)
-        final participants = List<String>.from(data['participants'] ?? []);
-        final otherParticipantId = participants.firstWhere(
-              (id) => id != userId,
-          orElse: () => "",
-        );
-
-        if (otherParticipantId.isEmpty || otherParticipantId == userId) continue;
-
-        // Try to find the actual ride in the rides collection
-        try {
-          final rideQuery = await _firestore
-              .collection('rides')
-              .where('userId', isEqualTo: otherParticipantId)
-              .get();
-
-          // Filter rides that match origin/destination in the chat
-          for (final rideDoc in rideQuery.docs) {
-            final rideData = rideDoc.data();
-
-            if (rideData['pickupLocation'] == rideMap['from'] &&
-                rideData['destinationLocation'] == rideMap['to']) {
-              bookedRides.add(RideDetails.fromMap(rideData, rideDoc.id));
-              break;
-            }
-          }
-        } catch (e) {
-          print('Error matching booked ride: $e');
-          // Continue to next chat
-        }
-      }
-
-      return bookedRides;
-    } catch (e) {
-      print('Error fetching booked rides: $e');
-      return [];
-    }
-  }
-
-  // Process rides in memory instead of using complex Firestore queries
-  void _processRidesList(List<RideDetails> allRides) {
-    // Do manual sorting in memory rather than in Firestore
-    allRides.sort((a, b) => b.createdAt.compareTo(a.createdAt));
-
-    final now = DateTime.now();
-    final upcoming = <RideDetails>[];
-    final past = <RideDetails>[];
-
-    for (var ride in allRides) {
-      // Parse the ride date and time
-      final DateTime rideDateTime = _parseRideDateTime(ride);
-
-      if (rideDateTime.isAfter(now) && ride.isActive) {
-        upcoming.add(ride);
-      } else {
-        past.add(ride);
-      }
-    }
-
-    upcomingTrips.value = upcoming;
-    pastTrips.value = past;
-  }
-
-  DateTime _parseRideDateTime(RideDetails ride) {
-    try {
-      final DateTime date = _parseDate(ride.rideDate);
-      final TimeOfDay time = _parseTime(ride.rideTime);
-
-      return DateTime(
-        date.year,
-        date.month,
-        date.day,
-        time.hour,
-        time.minute,
-      );
-    } catch (e) {
-      print('Error parsing date/time for ride: $e');
-      // Return yesterday as a fallback
-      return DateTime.now().subtract(const Duration(days: 1));
-    }
-  }
-
-  DateTime _parseDate(String dateStr) {
-    try {
-      // Try various date formats
-      final formats = [
-        'MMM d, yyyy', // Apr 15, 2025
-        'yyyy-MM-dd',   // 2025-04-15
-        'dd/MM/yyyy',   // 15/04/2025
-        'MM/dd/yyyy',   // 04/15/2025
-      ];
-
-      for (final format in formats) {
-        try {
-          return DateFormat(format).parse(dateStr);
-        } catch (_) {
-          // Try next format
-        }
-      }
-
-      // If no format works, throw an error
-      throw Exception('Could not parse date: $dateStr');
-    } catch (e) {
-      print('Error parsing date: $dateStr - $e');
-      return DateTime.now();
-    }
-  }
-
-  TimeOfDay _parseTime(String timeStr) {
-    try {
-      if (timeStr.contains('AM') || timeStr.contains('PM')) {
-        // Parse 12-hour format (e.g., "10:30 AM")
-        final parts = timeStr.split(' ');
-        final timePart = parts[0].split(':');
-        final hour = int.parse(timePart[0]);
-        final minute = int.parse(timePart[1]);
-        final isPM = parts[1].toUpperCase() == 'PM';
-
-        // Convert to 24-hour format
-        final hour24 = isPM && hour < 12 ? hour + 12 : (hour == 12 && !isPM ? 0 : hour);
-        return TimeOfDay(hour: hour24, minute: minute);
-      } else {
-        // Parse 24-hour format (e.g., "14:30")
-        final parts = timeStr.split(':');
-        return TimeOfDay(
-          hour: int.parse(parts[0]),
-          minute: int.parse(parts[1]),
-        );
-      }
-    } catch (e) {
-      print('Error parsing time: $timeStr - $e');
-      return TimeOfDay.now();
-    }
-  }
-
-  Future<void> cancelRide(RideDetails ride) async {
-    try {
-      await _firestore
-          .collection('rides')
-          .doc(ride.id)
-          .update({'isActive': false});
-
-      // Refresh the trips list
-      fetchTrips();
-
-      Get.snackbar(
-        'Success',
-        'Your ride has been cancelled',
-        snackPosition: SnackPosition.BOTTOM,
-        backgroundColor: Colors.green,
-        colorText: Colors.white,
-      );
-    } catch (e) {
-      print('Error cancelling ride: $e');
-
-      Get.snackbar(
-        'Error',
-        'Failed to cancel ride: ${e.toString()}',
-        snackPosition: SnackPosition.BOTTOM,
-        backgroundColor: Colors.red,
-        colorText: Colors.white,
-      );
-    }
-  }
-
-  // Handle the specific Firebase index error
-  void _handleFetchError(dynamic error) {
-    String errorMessage = error.toString();
-
-    // Check if this is an index error
-    if (errorMessage.contains('index') && errorMessage.contains('https://console.firebase')) {
-      isIndexError.value = true;
-
-      // Extract the URL for creating the index
-      final urlMatch = RegExp(r'https://console\.firebase\.google\.com/[^\s]+').firstMatch(errorMessage);
-      if (urlMatch != null) {
-        indexUrl.value = urlMatch.group(0) ?? "";
-      }
-
-      print('Index error detected. URL: ${indexUrl.value}');
-    } else {
-      Get.snackbar(
-        'Error',
-        'Failed to fetch trips: ${error.toString()}',
-        snackPosition: SnackPosition.BOTTOM,
-        backgroundColor: Colors.red,
-        colorText: Colors.white,
-      );
-    }
-  }
-
-  // Launch the Firebase Console URL to create the required index
-  void launchIndexCreationUrl() async {
-    if (indexUrl.value.isNotEmpty) {
+    // Sort rides by date and time
+    allRides.sort((a, b) {
       try {
-        final uri = Uri.parse(indexUrl.value);
-        if (await canLaunchUrl(uri)) {
-          await launchUrl(uri, mode: LaunchMode.externalApplication);
-        } else {
-          Get.snackbar(
-            'Error',
-            'Could not open browser to create index',
-            snackPosition: SnackPosition.BOTTOM,
-            backgroundColor: Colors.red,
-            colorText: Colors.white,
-          );
-        }
+        final aDate = _parseRideDateTime(a.rideDate, a.rideTime);
+        final bDate = _parseRideDateTime(b.rideDate, b.rideTime);
+        return aDate.compareTo(bDate);
       } catch (e) {
-        print('Error launching URL: $e');
+        return 0;
       }
+    });
+
+    // Filter into upcoming and past
+    upcomingTrips.value = allRides.where((trip) {
+      try {
+        final tripDate = _parseRideDateTime(trip.rideDate, trip.rideTime);
+        return tripDate.isAfter(now) && trip.isActive;
+      } catch (e) {
+        return false;
+      }
+    }).toList();
+
+    pastTrips.value = allRides.where((trip) {
+      try {
+        final tripDate = _parseRideDateTime(trip.rideDate, trip.rideTime);
+        return tripDate.isBefore(now) || !trip.isActive;
+      } catch (e) {
+        return true;
+      }
+    }).toList();
+  }
+
+  DateTime _parseRideDateTime(String date, String time) {
+    // This is a simplified parsing logic - adjust based on your date/time format
+    try {
+      final dateParts = date.replaceAll(',', '').split(' ');
+      final monthStr = dateParts[0];
+      final day = int.parse(dateParts[1]);
+      final year = int.parse(dateParts[2]);
+
+      final timeParts = time.split(' ');
+      final hourMinute = timeParts[0].split(':');
+      final hour = int.parse(hourMinute[0]);
+      final minute = int.parse(hourMinute[1]);
+      final isPM = timeParts[1].toLowerCase() == 'pm';
+
+      final adjustedHour = isPM && hour != 12 ? hour + 12 : (hour == 12 && !isPM ? 0 : hour);
+
+      final months = {
+        'Jan': 1, 'Feb': 2, 'Mar': 3, 'Apr': 4, 'May': 5, 'Jun': 6,
+        'Jul': 7, 'Aug': 8, 'Sep': 9, 'Oct': 10, 'Nov': 11, 'Dec': 12
+      };
+
+      return DateTime(year, months[monthStr] ?? 1, day, adjustedHour, minute);
+    } catch (e) {
+      // Fallback to current date if parsing fails
+      return DateTime.now();
     }
   }
 }

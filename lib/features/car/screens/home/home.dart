@@ -1,3 +1,4 @@
+import 'package:bu_buddy/features/car/screens/home/widgets/feature_card.dart';
 import 'package:bu_buddy/features/personalization/screens/chat_bot/chat_bot.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -5,7 +6,6 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:iconsax/iconsax.dart';
-import 'package:url_launcher/url_launcher.dart';
 import 'dart:math' as math;
 import 'dart:developer' as developer;
 
@@ -14,7 +14,6 @@ import '../my_trips/my_trips.dart';
 import '../publish_ride/publish_ride.dart';
 import '../../controllers/trip_controller.dart';
 import 'find_a_ride.dart';
-import 'widgets/feature_card.dart';
 
 class CarHomeScreen extends StatefulWidget {
   const CarHomeScreen({Key? key}) : super(key: key);
@@ -29,7 +28,6 @@ class _CarHomeScreenState extends State<CarHomeScreen> with SingleTickerProvider
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final TripController _tripController = Get.put(TripController());
 
-  User? currentUser;
   String _userName = 'User';
   bool _isLoading = true;
   bool _hasNotifications = false;
@@ -45,95 +43,85 @@ class _CarHomeScreenState extends State<CarHomeScreen> with SingleTickerProvider
       duration: const Duration(seconds: 20),
     )..repeat();
 
-    _getCurrentUser();
-    _fetchRecentRides();
+    _loadData();
+  }
+
+  Future<void> _loadData() async {
+    await Future.wait([
+      _getCurrentUser(),
+      _fetchRecentRides(),
+    ]);
   }
 
   Future<void> _getCurrentUser() async {
-    setState(() => _isLoading = true);
-
     try {
-      // Get current user from Firebase
-      currentUser = _auth.currentUser;
+      final currentUser = _auth.currentUser;
+      if (currentUser == null) return;
 
-      if (currentUser != null) {
-        // If displayName is available, use it
-        if (currentUser!.displayName != null && currentUser!.displayName!.isNotEmpty) {
-          _userName = currentUser!.displayName!.split(' ').first;
-        } else {
-          // Otherwise, try to fetch from Firestore
-          try {
-            final userDoc = await _firestore
-                .collection('users')
-                .doc(currentUser!.uid)
-                .get();
-
-            if (userDoc.exists) {
-              final userData = userDoc.data();
-              if (userData != null) {
-                if (userData['name'] != null) {
-                  _userName = userData['name'].toString().split(' ').first;
-                } else if (userData['firstName'] != null) {
-                  _userName = userData['firstName'];
-                } else if (userData['fullName'] != null) {
-                  _userName = userData['fullName'].toString().split(' ').first;
-                }
-              }
-            }
-          } catch (e) {
-            developer.log('Error fetching user data from Firestore: $e');
-          }
-        }
-
-        // Check for chat_bot
+      // Try to get username from display name first
+      if (currentUser.displayName != null && currentUser.displayName!.isNotEmpty) {
+        _userName = currentUser.displayName!.split(' ').first;
+      } else {
+        // Otherwise try Firestore
         try {
-          final notificationsSnapshot = await _firestore
-              .collection('chat_bot')
-              .where('userId', isEqualTo: currentUser!.uid)
-              .where('read', isEqualTo: false)
-              .limit(1)
-              .get();
-
-          _hasNotifications = notificationsSnapshot.docs.isNotEmpty;
+          final userDoc = await _firestore.collection('users').doc(currentUser.uid).get();
+          if (userDoc.exists) {
+            final userData = userDoc.data();
+            if (userData != null) {
+              _userName = userData['name']?.toString().split(' ').first ??
+                  userData['firstName'] ??
+                  userData['fullName']?.toString().split(' ').first ??
+                  'User';
+            }
+          }
         } catch (e) {
-          developer.log('Error fetching chat_bot: $e');
+          developer.log('Error fetching user data: $e');
         }
+      }
+
+      // Check for notifications
+      try {
+        final notificationsSnapshot = await _firestore
+            .collection('chat_bot')
+            .where('userId', isEqualTo: currentUser.uid)
+            .where('read', isEqualTo: false)
+            .limit(1)
+            .get();
+
+        _hasNotifications = notificationsSnapshot.docs.isNotEmpty;
+      } catch (e) {
+        developer.log('Error fetching notifications: $e');
       }
     } catch (e) {
       developer.log('Error getting user data: $e');
     } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
   Future<void> _fetchRecentRides() async {
-    if (mounted) {
-      setState(() {
-        _isLoadingRides = true;
-        _errorMessage = null;
-      });
-    }
+    if (!mounted) return;
+
+    setState(() {
+      _isLoadingRides = true;
+      _errorMessage = null;
+    });
 
     try {
-      if (_auth.currentUser == null) {
-        throw Exception("User not logged in");
-      }
+      if (_auth.currentUser == null) throw Exception("User not logged in");
 
-      // Use a simple query without orderBy to avoid index issues
+      // Simple query to avoid index issues
       final querySnapshot = await _firestore
           .collection('rides')
           .where('userId', isEqualTo: _auth.currentUser!.uid)
           .limit(5)
           .get();
 
-      // Process the data manually
       final List<RideDetails> rides = [];
       for (var doc in querySnapshot.docs) {
         try {
           final data = doc.data();
-          final ride = RideDetails(
+          rides.add(RideDetails(
             id: doc.id,
             userId: data['userId'] ?? '',
             userName: data['userName'] ?? 'Unknown',
@@ -146,14 +134,13 @@ class _CarHomeScreenState extends State<CarHomeScreen> with SingleTickerProvider
             price: (data['price'] is num) ? (data['price'] as num).toDouble() : 0.0,
             createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
             isActive: data['isActive'] ?? true,
-          );
-          rides.add(ride);
+          ));
         } catch (e) {
-          developer.log('Error parsing ride data: $e');
+          developer.log('Error parsing ride: $e');
         }
       }
 
-      // Sort manually by creation date (newest first)
+      // Sort by newest first
       rides.sort((a, b) => b.createdAt.compareTo(a.createdAt));
 
       if (mounted) {
@@ -163,7 +150,7 @@ class _CarHomeScreenState extends State<CarHomeScreen> with SingleTickerProvider
         });
       }
     } catch (e) {
-      developer.log('Error fetching recent rides: $e');
+      developer.log('Error fetching rides: $e');
       if (mounted) {
         setState(() {
           _errorMessage = e.toString();
@@ -171,6 +158,14 @@ class _CarHomeScreenState extends State<CarHomeScreen> with SingleTickerProvider
         });
       }
     }
+  }
+
+  Future<void> _refreshData() async {
+    await Future.wait([
+      _getCurrentUser(),
+      _fetchRecentRides(),
+      _tripController.fetchTrips(),
+    ]);
   }
 
   @override
@@ -187,93 +182,82 @@ class _CarHomeScreenState extends State<CarHomeScreen> with SingleTickerProvider
       body: Stack(
         children: [
           // Animated background
-          _buildAnimatedBackground(),
+          AnimatedBuilder(
+            animation: _animationController,
+            builder: (context, child) => CustomPaint(
+              painter: BackgroundPainter(animation: _animationController.value),
+              child: Container(width: double.infinity, height: double.infinity),
+            ),
+          ),
 
           // Main content
           SafeArea(
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator(color: Colors.blue))
                 : RefreshIndicator(
-              onRefresh: () async {
-                await _getCurrentUser();
-                await _fetchRecentRides();
-                await _tripController.fetchTrips();
-              },
+              onRefresh: _refreshData,
               color: Colors.blue,
               backgroundColor: Colors.grey.shade900,
-              child: SingleChildScrollView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const SizedBox(height: 8),
+              child: CustomScrollView(
+                physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+                slivers: [
+                  SliverToBoxAdapter(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const SizedBox(height: 8),
 
-                    // App bar with logo and actions
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: _buildAppBar(),
+                        // App bar with logo and actions
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          child: _buildAppBar(),
+                        ),
+
+                        const SizedBox(height: 24),
+
+                        // User greeting section
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          child: _buildGreetingSection(),
+                        ).animate()
+                            .fadeIn(duration: 600.ms)
+                            .slideY(begin: -20, end: 0, curve: Curves.easeOutQuad),
+
+                        const SizedBox(height: 30),
+
+                        // Available rides section
+                        const RideOfferSlider().animate()
+                            .fadeIn(duration: 600.ms, delay: 300.ms),
+
+                        const SizedBox(height: 30),
+
+                        // Quick actions
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          child: _buildQuickActionsSection(),
+                        ).animate()
+                            .fadeIn(duration: 600.ms, delay: 600.ms)
+                            .slideY(begin: 20, end: 0),
+
+                        const SizedBox(height: 30),
+
+                        // Recent carpools
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          child: _buildRecentCarpoolsSection(),
+                        ).animate()
+                            .fadeIn(duration: 600.ms, delay: 900.ms),
+
+                        const SizedBox(height: 100), // Bottom padding for FAB
+                      ],
                     ),
-
-                    const SizedBox(height: 24),
-
-                    // User greeting section
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: _buildGreetingSection(),
-                    ).animate()
-                        .fadeIn(duration: 600.ms)
-                        .slideY(begin: -20, end: 0, curve: Curves.easeOutQuad),
-
-                    const SizedBox(height: 30),
-
-                    // Available rides section using RideOfferSlider
-                    const RideOfferSlider().animate()
-                        .fadeIn(duration: 600.ms, delay: 300.ms),
-
-                    const SizedBox(height: 30),
-
-                    // Quick actions
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: _buildQuickActionsSection(),
-                    ).animate()
-                        .fadeIn(duration: 600.ms, delay: 600.ms)
-                        .slideY(begin: 20, end: 0),
-
-                    const SizedBox(height: 30),
-
-                    // Recent carpools
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: _buildRecentCarpoolsSection(),
-                    ).animate()
-                        .fadeIn(duration: 600.ms, delay: 900.ms),
-
-                    const SizedBox(height: 100), // Bottom padding for FAB
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
           ),
         ],
       ),
-    );
-  }
-
-  Widget _buildAnimatedBackground() {
-    return AnimatedBuilder(
-      animation: _animationController,
-      builder: (context, child) {
-        return CustomPaint(
-          painter: BackgroundPainter(
-            animation: _animationController.value,
-          ),
-          child: Container(
-            width: double.infinity,
-            height: double.infinity,
-          ),
-        );
-      },
     );
   }
 
@@ -285,33 +269,20 @@ class _CarHomeScreenState extends State<CarHomeScreen> with SingleTickerProvider
         Row(
           children: [
             Container(
-              width: 40,
-              height: 40,
+              width: 40, height: 40,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                gradient: LinearGradient(
-                  colors: [Colors.blue.shade600, Colors.blue.shade800],
-                ),
+                gradient: LinearGradient(colors: [Colors.blue.shade600, Colors.blue.shade800]),
               ),
               child: const Center(
-                child: Text(
-                  'B',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                  ),
+                child: Text('B',
+                  style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold),
                 ),
               ),
             ),
             const SizedBox(width: 10),
-            const Text(
-              'BuBuddy',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-              ),
+            const Text('BuBuddy',
+              style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold),
             ),
           ],
         ),
@@ -327,65 +298,53 @@ class _CarHomeScreenState extends State<CarHomeScreen> with SingleTickerProvider
               visualDensity: VisualDensity.compact,
             ),
             const SizedBox(width: 16),
-            Stack(
-              children: [
-                IconButton(
-                  icon: const Icon(Icons.notifications, color: Colors.white),
-                  onPressed: () {
-                    // Handle notifications
-                    () => Get.to(() => ChatbotScreen());
-
-
-                  },
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(),
-                  visualDensity: VisualDensity.compact,
-                ),
-                if (_hasNotifications)
-                  Positioned(
-                    right: 0,
-                    top: 0,
-                    child: Container(
-                      padding: const EdgeInsets.all(2),
-                      decoration: const BoxDecoration(
-                        color: Colors.red,
-                        shape: BoxShape.circle,
-                      ),
-                      constraints: const BoxConstraints(
-                        minWidth: 8,
-                        minHeight: 8,
-                      ),
-                    ),
-                  ),
-              ],
-            ),
+            _buildNotificationIcon(),
           ],
         ),
       ],
     );
   }
 
+  Widget _buildNotificationIcon() {
+    return Stack(
+      children: [
+        IconButton(
+          icon: const Icon(Icons.notifications, color: Colors.white),
+          onPressed: () => Get.to(() => ChatbotScreen()),
+          padding: EdgeInsets.zero,
+          constraints: const BoxConstraints(),
+          visualDensity: VisualDensity.compact,
+        ),
+        if (_hasNotifications)
+          Positioned(
+            right: 0, top: 0,
+            child: Container(
+              padding: const EdgeInsets.all(2),
+              decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle),
+              constraints: const BoxConstraints(minWidth: 8, minHeight: 8),
+            ),
+          ),
+      ],
+    );
+  }
+
   Widget _buildGreetingSection() {
+    final hour = DateTime.now().hour;
+    final greeting = hour < 12 ? 'Good Morning,' : (hour < 17 ? 'Good Afternoon,' : 'Good Evening,');
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          _getGreeting(),
-          style: TextStyle(
-            color: Colors.white.withOpacity(0.7),
-            fontSize: 16,
-          ),
+        Text(greeting,
+          style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 16),
         ),
         const SizedBox(height: 5),
         Row(
           children: [
             Flexible(
-              child: Text(
-                _userName,
+              child: Text(_userName,
                 style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 32,
-                  fontWeight: FontWeight.bold,
+                  color: Colors.white, fontSize: 32, fontWeight: FontWeight.bold,
                 ),
                 overflow: TextOverflow.ellipsis,
               ),
@@ -403,13 +362,8 @@ class _CarHomeScreenState extends State<CarHomeScreen> with SingleTickerProvider
                 children: [
                   Icon(Icons.star, color: Colors.amber, size: 16),
                   SizedBox(width: 4),
-                  Text(
-                    'Top Rider',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                    ),
+                  Text('Top Rider',
+                    style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w500),
                   ),
                 ],
               ),
@@ -433,58 +387,63 @@ class _CarHomeScreenState extends State<CarHomeScreen> with SingleTickerProvider
                 color: Colors.blue.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: const Icon(
-                Iconsax.flash_1,
-                color: Colors.blue,
-              ),
+              child: const Icon(Iconsax.flash_1, color: Colors.blue),
             ),
             const SizedBox(width: 12),
-            const Text(
-              'Quick Actions',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-              ),
+            const Text('Quick Actions',
+              style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w600),
             ),
           ],
         ),
-
         const SizedBox(height: 16),
-
-        // Quick action buttons
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            _buildQuickActionButton(
-              icon: Iconsax.search_normal,
-              label: 'Find Rides',
-              color: Colors.blue,
-              onTap: () => Get.to(() => FindARideScreen()),
-            ),
-            _buildQuickActionButton(
-              icon: Iconsax.add,
-              label: 'Publish Ride',
-              color: Colors.green,
-              onTap: () => Get.to(() => PublishRideScreen())!.then((_) => _fetchRecentRides()),
-            ),
-            _buildQuickActionButton(
-              icon: Iconsax.clock,
-              label: 'History',
-              color: Colors.purple,
-              onTap: () => Get.to(() => MyTripsScreen()),
-            ),
-            _buildQuickActionButton(
-              icon: Iconsax.heart,
-              label: 'Save',
-              color: Colors.red,
-              onTap: () {
-                // Handle saved rides
-              },
-            ),
-          ],
+        // Action buttons - horizontally scrollable
+        SizedBox(
+          height: 110, // Fixed height for the scroll area
+          child: ListView(
+            scrollDirection: Axis.horizontal,
+            physics: const BouncingScrollPhysics(),
+            children: [
+              _buildActionButton(Iconsax.search_normal, 'Find Rides', Colors.blue,
+                      () => Get.to(() => FindARideScreen())),
+              const SizedBox(width: 16),
+              _buildActionButton(Iconsax.add, 'Publish Ride', Colors.green,
+                      () => Get.to(() => PublishRideScreen())!.then((_) => _fetchRecentRides())),
+              const SizedBox(width: 16),
+              _buildActionButton(Iconsax.clock, 'History', Colors.purple,
+                      () => Get.to(() => MyTripsScreen())),
+              const SizedBox(width: 16),
+              _buildActionButton(Iconsax.heart, 'Save', Colors.red, () {}),
+              const SizedBox(width: 16),
+              _buildActionButton(Iconsax.map, 'Locations', Colors.orange, () {}),
+              // Add more buttons here as needed
+            ],
+          ),
         ),
       ],
+    );
+  }
+  Widget _buildActionButton(IconData icon, String label, Color color, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Column(
+        children: [
+          Container(
+            width: 70, height: 70,
+            decoration: BoxDecoration(
+              color: Colors.grey.shade900,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: color.withOpacity(0.3), width: 2),
+            ),
+            child: Icon(icon, color: color, size: 26),
+          ),
+          const SizedBox(height: 8),
+          Text(label,
+            style: const TextStyle(
+                color: Colors.white, fontSize: 14, fontWeight: FontWeight.w500
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -492,7 +451,7 @@ class _CarHomeScreenState extends State<CarHomeScreen> with SingleTickerProvider
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Section header
+        // Header
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
@@ -504,19 +463,11 @@ class _CarHomeScreenState extends State<CarHomeScreen> with SingleTickerProvider
                     color: Colors.blue.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: const Icon(
-                    Iconsax.clock,
-                    color: Colors.blue,
-                  ),
+                  child: const Icon(Iconsax.clock, color: Colors.blue),
                 ),
                 const SizedBox(width: 12),
-                const Text(
-                  'Recent Carpools',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 18,
-                    fontWeight: FontWeight.w600,
-                  ),
+                const Text('Recent Carpools',
+                  style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w600),
                 ),
               ],
             ),
@@ -530,69 +481,46 @@ class _CarHomeScreenState extends State<CarHomeScreen> with SingleTickerProvider
               child: const Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(
-                    'View All',
-                    style: TextStyle(
-                      color: Colors.blue,
-                    ),
-                  ),
+                  Text('View All', style: TextStyle(color: Colors.blue)),
                   SizedBox(width: 4),
-                  Icon(
-                    Icons.arrow_forward_ios,
-                    color: Colors.blue,
-                    size: 14,
-                  ),
+                  Icon(Icons.arrow_forward_ios, color: Colors.blue, size: 14),
                 ],
               ),
             ),
           ],
         ),
-
         const SizedBox(height: 16),
 
         // Content based on state
         if (_isLoadingRides)
-          _buildLoadingState()
+          _buildCarpoolsLoadingState()
         else if (_errorMessage != null)
-          _buildErrorState()
+          _buildCarpoolsErrorState()
         else if (_recentRides.isEmpty)
-            _buildEmptyRecentCarpools()
+            _buildEmptyCarpoolsState()
           else
             Column(
-              children: _recentRides
-                  .take(3)
-                  .map((trip) => _buildCarpoolItem(trip))
-                  .toList(),
+              children: _recentRides.take(3).map((trip) => _buildCarpoolItem(trip)).toList(),
             ),
       ],
     );
   }
 
-  Widget _buildLoadingState() {
+  Widget _buildCarpoolsLoadingState() {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 20),
       decoration: BoxDecoration(
         color: Colors.grey.shade900,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: Colors.grey.shade800,
-          width: 1,
-        ),
+        border: Border.all(color: Colors.grey.shade800),
       ),
       child: const Column(
         children: [
-          CircularProgressIndicator(
-            color: Colors.blue,
-            strokeWidth: 3,
-          ),
+          CircularProgressIndicator(color: Colors.blue, strokeWidth: 3),
           SizedBox(height: 20),
-          Text(
-            'Loading your recent rides...',
-            style: TextStyle(
-              color: Colors.white70,
-              fontSize: 16,
-            ),
+          Text('Loading your recent rides...',
+            style: TextStyle(color: Colors.white70, fontSize: 16),
             textAlign: TextAlign.center,
           ),
         ],
@@ -600,41 +528,25 @@ class _CarHomeScreenState extends State<CarHomeScreen> with SingleTickerProvider
     );
   }
 
-  Widget _buildErrorState() {
+  Widget _buildCarpoolsErrorState() {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: Colors.red.withOpacity(0.1),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: Colors.red.withOpacity(0.3),
-          width: 1,
-        ),
+        border: Border.all(color: Colors.red.withOpacity(0.3)),
       ),
       child: Column(
         children: [
-          const Icon(
-            Icons.error_outline,
-            color: Colors.red,
-            size: 48,
-          ),
+          const Icon(Icons.error_outline, color: Colors.red, size: 48),
           const SizedBox(height: 16),
-          const Text(
-            'Something went wrong',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-            ),
+          const Text('Something went wrong',
+            style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 8),
-          Text(
-            _errorMessage ?? 'Failed to load your recent carpools',
-            style: const TextStyle(
-              color: Colors.white70,
-              fontSize: 14,
-            ),
+          Text(_errorMessage ?? 'Failed to load your recent carpools',
+            style: const TextStyle(color: Colors.white70, fontSize: 14),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 16),
@@ -652,7 +564,7 @@ class _CarHomeScreenState extends State<CarHomeScreen> with SingleTickerProvider
     );
   }
 
-  Widget _buildEmptyRecentCarpools() {
+  Widget _buildEmptyCarpoolsState() {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(24),
@@ -663,26 +575,14 @@ class _CarHomeScreenState extends State<CarHomeScreen> with SingleTickerProvider
       ),
       child: Column(
         children: [
-          Icon(
-            Iconsax.car,
-            color: Colors.blue.withOpacity(0.3),
-            size: 48,
-          ),
+          Icon(Iconsax.car, color: Colors.blue.withOpacity(0.3), size: 48),
           const SizedBox(height: 16),
-          const Text(
-            'No recent carpools',
-            style: TextStyle(
-              color: Colors.white70,
-              fontSize: 16,
-            ),
+          const Text('No recent carpools',
+            style: TextStyle(color: Colors.white70, fontSize: 16),
           ),
           const SizedBox(height: 8),
-          const Text(
-            'Your recent rides will appear here',
-            style: TextStyle(
-              color: Colors.white38,
-              fontSize: 14,
-            ),
+          const Text('Your recent rides will appear here',
+            style: TextStyle(color: Colors.white38, fontSize: 14),
           ),
           const SizedBox(height: 16),
           ElevatedButton(
@@ -691,9 +591,7 @@ class _CarHomeScreenState extends State<CarHomeScreen> with SingleTickerProvider
               backgroundColor: Colors.blue,
               foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
-              ),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
             ),
             child: const Text('Publish a Ride'),
           ),
@@ -720,60 +618,33 @@ class _CarHomeScreenState extends State<CarHomeScreen> with SingleTickerProvider
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'From',
-                      style: TextStyle(
-                        color: Colors.grey,
-                        fontSize: 12,
-                      ),
-                    ),
+                    const Text('From', style: TextStyle(color: Colors.grey, fontSize: 12)),
                     const SizedBox(height: 4),
-                    Text(
-                      trip.pickupLocation,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w600,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                    Text(trip.pickupLocation,
+                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+                      maxLines: 1, overflow: TextOverflow.ellipsis,
                     ),
                   ],
                 ),
               ),
               const SizedBox(width: 10),
-              const Icon(
-                Icons.arrow_forward,
-                color: Colors.grey,
-                size: 16,
-              ),
+              const Icon(Icons.arrow_forward, color: Colors.grey, size: 16),
               const SizedBox(width: 10),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'To',
-                      style: TextStyle(
-                        color: Colors.grey,
-                        fontSize: 12,
-                      ),
-                    ),
+                    const Text('To', style: TextStyle(color: Colors.grey, fontSize: 12)),
                     const SizedBox(height: 4),
-                    Text(
-                      trip.destinationLocation,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w600,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                    Text(trip.destinationLocation,
+                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+                      maxLines: 1, overflow: TextOverflow.ellipsis,
                     ),
                   ],
                 ),
               ),
             ],
           ),
-
           const SizedBox(height: 16),
           const Divider(color: Colors.grey, height: 1),
           const SizedBox(height: 16),
@@ -785,43 +656,26 @@ class _CarHomeScreenState extends State<CarHomeScreen> with SingleTickerProvider
               // Time and date
               Row(
                 children: [
-                  const Icon(
-                    Icons.access_time,
-                    color: Colors.grey,
-                    size: 16,
-                  ),
+                  const Icon(Icons.access_time, color: Colors.grey, size: 16),
                   const SizedBox(width: 4),
-                  Text(
-                    '${trip.rideTime} • ${trip.rideDate}',
-                    style: const TextStyle(
-                      color: Colors.grey,
-                      fontSize: 14,
-                    ),
+                  Text('${trip.rideTime} • ${trip.rideDate}',
+                    style: const TextStyle(color: Colors.grey, fontSize: 14),
                   ),
                 ],
               ),
-
               // Price
               Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 4,
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                 decoration: BoxDecoration(
                   color: Colors.green.withOpacity(0.2),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: Text(
-                  '₹${trip.price.toStringAsFixed(0)}',
-                  style: const TextStyle(
-                    color: Colors.green,
-                    fontWeight: FontWeight.bold,
-                  ),
+                child: Text('₹${trip.price.toStringAsFixed(0)}',
+                  style: const TextStyle(color: Colors.green, fontWeight: FontWeight.bold),
                 ),
               ),
             ],
           ),
-
           const SizedBox(height: 16),
 
           // Seats and view details row
@@ -831,44 +685,26 @@ class _CarHomeScreenState extends State<CarHomeScreen> with SingleTickerProvider
               // Seats
               Row(
                 children: [
-                  const Icon(
-                    Icons.person_outline,
-                    color: Colors.grey,
-                    size: 16,
-                  ),
+                  const Icon(Icons.person_outline, color: Colors.grey, size: 16),
                   const SizedBox(width: 4),
-                  Text(
-                    '${trip.availableSeats} seats',
-                    style: const TextStyle(
-                      color: Colors.grey,
-                      fontSize: 14,
-                    ),
+                  Text('${trip.availableSeats} seats',
+                    style: const TextStyle(color: Colors.grey, fontSize: 14),
                   ),
                 ],
               ),
-
               // View details button
               ElevatedButton(
                 onPressed: () => Get.to(() => MyTripsScreen()),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.blue,
                   foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 8,
-                  ),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   minimumSize: const Size(0, 0),
                   tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 ),
-                child: const Text(
-                  'View Details',
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 14,
-                  ),
+                child: const Text('View Details',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
                 ),
               ),
             ],
@@ -877,75 +713,17 @@ class _CarHomeScreenState extends State<CarHomeScreen> with SingleTickerProvider
       ),
     );
   }
-
-  Widget _buildQuickActionButton({
-    required IconData icon,
-    required String label,
-    required Color color,
-    required VoidCallback onTap,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Column(
-        children: [
-          Container(
-            width: 70,
-            height: 70,
-            decoration: BoxDecoration(
-              color: Colors.grey.shade900,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(
-                color: color.withOpacity(0.3),
-                width: 2,
-              ),
-            ),
-            child: Icon(
-              icon,
-              color: color,
-              size: 26,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            label,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-
-
-  String _getGreeting() {
-    final hour = DateTime.now().hour;
-    if (hour < 12) {
-      return 'Good Morning,';
-    } else if (hour < 17) {
-      return 'Good Afternoon,';
-    } else {
-      return 'Good Evening,';
-    }
-  }
 }
 
 class BackgroundPainter extends CustomPainter {
   final double animation;
-
   BackgroundPainter({required this.animation});
 
   @override
   void paint(Canvas canvas, Size size) {
-    final paint = Paint();
-
-    // Base background color
+    // Base background
     canvas.drawColor(Colors.black, BlendMode.src);
 
-    // Create animated floating particles
     final colors = [
       Colors.blue.withOpacity(0.15),
       Colors.purple.withOpacity(0.1),
@@ -953,49 +731,35 @@ class BackgroundPainter extends CustomPainter {
     ];
 
     // Small particles
-    for (int i = 0; i < 30; i++) {
+    for (int i = 0; i < 20; i++) {
       final xPos = (size.width * 0.1) + (size.width * 0.8 * ((i * 7919) % 100) / 100);
       final yPos = (size.height * 0.1) + (size.height * 0.8 * ((i * 6733) % 100) / 100);
       final radius = 2.0 + 5.0 * math.sin(animation * 2 * math.pi + i);
 
-      paint.color = colors[i % colors.length].withOpacity(0.1);
-
-      canvas.drawCircle(
-        Offset(xPos, yPos),
-        radius,
-        paint,
-      );
+      final paint = Paint()..color = colors[i % colors.length].withOpacity(0.1);
+      canvas.drawCircle(Offset(xPos, yPos), radius, paint);
     }
 
     // Larger glowing particles
-    for (int i = 0; i < 10; i++) {
+    for (int i = 0; i < 8; i++) {
       final color = colors[i % colors.length];
-      paint.color = color;
-
       final xPos = (size.width * 0.1) + (size.width * 0.8 * ((i * 5039) % 100) / 100);
       final yPos = (size.height * 0.1) + (size.height * 0.8 * ((i * 4271) % 100) / 100);
       final radius = 10.0 + 15.0 * math.sin(animation * 2 * math.pi + i);
 
-      // Draw glow effect
+      // Glow effect
       final glowPaint = Paint()
         ..color = color.withOpacity(0.3)
         ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 15.0);
+      canvas.drawCircle(Offset(xPos, yPos), radius * 1.5, glowPaint);
 
-      canvas.drawCircle(
-        Offset(xPos, yPos),
-        radius * 1.5,
-        glowPaint,
-      );
-
-      // Draw core
-      canvas.drawCircle(
-        Offset(xPos, yPos),
-        radius,
-        paint,
-      );
+      // Core
+      final corePaint = Paint()..color = color;
+      canvas.drawCircle(Offset(xPos, yPos), radius, corePaint);
     }
   }
 
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
 }
+

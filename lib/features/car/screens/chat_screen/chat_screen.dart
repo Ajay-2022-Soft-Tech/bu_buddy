@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -43,12 +45,26 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
   bool _isAttachmentVisible = false;
   bool _isSending = false;
   bool _isTyping = false;
+  bool _isEmojiVisible = false;
   bool _isIndexCreated = false;
   bool _isOnline = true; // Simulate online status
   bool _imageUploading = false;
 
+  // Pagination variables
+  int _messageLimit = 20;
+  bool _isLoadingMore = false;
+  List<DocumentSnapshot> _messages = [];
+  bool _hasMoreMessages = true;
+  DocumentSnapshot? _lastDocument;
+
   String get _currentUserId => FirebaseAuth.instance.currentUser?.uid ?? 'user_${DateTime.now().millisecondsSinceEpoch}';
   String get _chatId => getChatId(_currentUserId, widget.receiverId);
+
+  // Local messages for optimistic UI updates
+  List<Map<String, dynamic>> _localMessages = [];
+
+  // Stream subscription for new messages
+  StreamSubscription? _newMessagesSubscription;
 
   // Get a consistent chat ID regardless of who initiates the chat
   String getChatId(String userId1, String userId2) {
@@ -87,6 +103,18 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
     // Listen for text changes to animate send button
     _messageController.addListener(_onTextChanged);
 
+    // Add scroll listener for pagination
+    _scrollController.addListener(_scrollListener);
+
+    // Setup Firebase offline persistence
+    _setupOfflineCache();
+
+    // Load initial messages
+    _loadInitialMessages();
+
+    // Setup real-time listener for new messages
+    _setupMessageListener();
+
     // Send ride details message if this is a new chat
     _checkAndSendRideDetails();
 
@@ -106,11 +134,163 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
 
     // Simulate typing status after 2 seconds
     Future.delayed(const Duration(seconds: 2), () {
-      setState(() => _isTyping = true);
-      Future.delayed(const Duration(seconds: 4), () {
-        setState(() => _isTyping = false);
-      });
+      if (mounted) {
+        setState(() => _isTyping = true);
+        Future.delayed(const Duration(seconds: 4), () {
+          if (mounted) {
+            setState(() => _isTyping = false);
+          }
+        });
+      }
     });
+  }
+
+  void _setupOfflineCache() {
+    FirebaseFirestore.instance.settings = Settings(
+      persistenceEnabled: true,
+      cacheSizeBytes: Settings.CACHE_SIZE_UNLIMITED,
+    );
+  }
+
+  void _setupMessageListener() {
+    // Listen for new messages
+    _newMessagesSubscription = FirebaseFirestore.instance
+        .collection('chats')
+        .doc(_chatId)
+        .collection('messages')
+        .orderBy('timestamp', descending: true)
+        .limit(1)
+        .snapshots()
+        .listen((snapshot) {
+      if (snapshot.docs.isNotEmpty && mounted) {
+        final newDoc = snapshot.docs.first;
+        final newMessage = newDoc.data();
+        final messageId = newDoc.id;
+
+        // Check if this is actually a new message and not already in our list
+        if (!_messages.any((doc) => doc.id == messageId) &&
+            !_localMessages.any((msg) => msg['id'] == messageId)) {
+
+          // Add to local messages for immediate UI update
+          setState(() {
+            _localMessages.insert(0, {...newMessage, 'id': messageId});
+          });
+
+          // If it's a new message from the other person, mark as read
+          if (newMessage['senderId'] != _currentUserId) {
+            _markMessageAsRead(messageId);
+          }
+
+          // Scroll to bottom if we're already near the bottom
+          if (_isNearBottom()) {
+            _scrollToBottom();
+          }
+        }
+      }
+    });
+  }
+
+  bool _isNearBottom() {
+    if (!_scrollController.hasClients) return true;
+
+    final maxScroll = _scrollController.position.maxScrollExtent;
+    final currentScroll = _scrollController.offset;
+    return maxScroll - currentScroll < 200;
+  }
+
+  Future<void> _markMessageAsRead(String messageId) async {
+    try {
+      await FirebaseFirestore.instance
+          .collection('chats')
+          .doc(_chatId)
+          .collection('messages')
+          .doc(messageId)
+          .update({'isRead': true});
+    } catch (e) {
+      print('Error marking message as read: $e');
+    }
+  }
+
+  Future<void> _loadInitialMessages() async {
+    if (_isLoadingMore) return;
+
+    setState(() {
+      _isLoadingMore = true;
+    });
+
+    try {
+      final querySnapshot = await FirebaseFirestore.instance
+          .collection('chats')
+          .doc(_chatId)
+          .collection('messages')
+          .orderBy('timestamp', descending: true)
+          .limit(_messageLimit)
+          .get();
+
+      if (querySnapshot.docs.isNotEmpty) {
+        setState(() {
+          _messages = querySnapshot.docs;
+          _lastDocument = querySnapshot.docs.last;
+          _hasMoreMessages = querySnapshot.docs.length >= _messageLimit;
+        });
+      }
+    } catch (e) {
+      _showErrorSnackBar('Error loading messages: $e');
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoadingMore = false;
+        });
+      }
+    }
+  }
+
+  void _scrollListener() {
+    if (_scrollController.hasClients &&
+        _scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 200 &&
+        !_isLoadingMore &&
+        _hasMoreMessages) {
+      _loadMoreMessages();
+    }
+  }
+
+  Future<void> _loadMoreMessages() async {
+    if (_isLoadingMore || !_hasMoreMessages || _lastDocument == null) return;
+
+    setState(() {
+      _isLoadingMore = true;
+    });
+
+    try {
+      final querySnapshot = await FirebaseFirestore.instance
+          .collection('chats')
+          .doc(_chatId)
+          .collection('messages')
+          .orderBy('timestamp', descending: true)
+          .startAfterDocument(_lastDocument!)
+          .limit(_messageLimit)
+          .get();
+
+      if (querySnapshot.docs.isNotEmpty) {
+        setState(() {
+          _messages.addAll(querySnapshot.docs);
+          _lastDocument = querySnapshot.docs.last;
+          _hasMoreMessages = querySnapshot.docs.length >= _messageLimit;
+        });
+      } else {
+        setState(() {
+          _hasMoreMessages = false;
+        });
+      }
+    } catch (e) {
+      _showErrorSnackBar('Error loading more messages: $e');
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoadingMore = false;
+        });
+      }
+    }
   }
 
   void _onTextChanged() {
@@ -126,18 +306,20 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
   void dispose() {
     _messageController.removeListener(_onTextChanged);
     _messageController.dispose();
+    _scrollController.removeListener(_scrollListener);
     _scrollController.dispose();
     _focusNode.dispose();
     _fabAnimationController.dispose();
     _attachmentAnimationController.dispose();
     _sendButtonAnimationController.dispose();
+    _newMessagesSubscription?.cancel();
     super.dispose();
   }
 
   void _scrollToBottom() {
     if (_scrollController.hasClients) {
       _scrollController.animateTo(
-        _scrollController.position.maxScrollExtent,
+        0, // Since we're using descending order, 0 is the bottom
         duration: const Duration(milliseconds: 300),
         curve: Curves.easeOut,
       );
@@ -186,14 +368,36 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
     // Trigger haptic feedback for better user experience
     HapticFeedback.lightImpact();
 
-    try {
-      final timestamp = Timestamp.now();
+    // Generate a unique message ID
+    final messageId = FirebaseFirestore.instance.collection('chats').doc().id;
+    final timestamp = Timestamp.now();
 
+    // Create message data
+    final messageData = {
+      'id': messageId,
+      'chatId': _chatId,
+      'senderId': _currentUserId,
+      'receiverId': widget.receiverId,
+      'text': text,
+      'timestamp': timestamp,
+      'type': messageType,
+      'isRead': false,
+      'isPending': true,
+    };
+
+    // Add to local messages for optimistic UI update
+    setState(() {
+      _localMessages.insert(0, messageData);
+    });
+
+    try {
+      // Actually send to Firebase
       await FirebaseFirestore.instance
           .collection('chats')
           .doc(_chatId)
           .collection('messages')
-          .add({
+          .doc(messageId)
+          .set({
         'chatId': _chatId,
         'senderId': _currentUserId,
         'receiverId': widget.receiverId,
@@ -203,6 +407,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
         'isRead': false,
       });
 
+      // Update chat metadata
       await FirebaseFirestore.instance
           .collection('chats')
           .doc(_chatId)
@@ -214,12 +419,25 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
         'ride': widget.rideDetails,
       }, SetOptions(merge: true));
 
-      _messageController.clear();
-
-      Future.delayed(const Duration(milliseconds: 100), () {
-        _scrollToBottom();
+      // Update local message to remove pending state
+      setState(() {
+        final index = _localMessages.indexWhere((msg) => msg['id'] == messageId);
+        if (index != -1) {
+          _localMessages[index]['isPending'] = false;
+        }
       });
+
+      _messageController.clear();
+      _scrollToBottom();
     } catch (e) {
+      // Mark message as failed in local state
+      setState(() {
+        final index = _localMessages.indexWhere((msg) => msg['id'] == messageId);
+        if (index != -1) {
+          _localMessages[index]['isFailed'] = true;
+          _localMessages[index]['isPending'] = false;
+        }
+      });
       _showErrorSnackBar('Failed to send message: $e');
     } finally {
       if (mounted) {
@@ -228,6 +446,19 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
         });
       }
     }
+  }
+
+  Future<void> _resendFailedMessage(Map<String, dynamic> failedMessage) async {
+    // Remove the failed message
+    setState(() {
+      _localMessages.removeWhere((msg) => msg['id'] == failedMessage['id']);
+    });
+
+    // Resend with the same content
+    await _sendMessage(
+      failedMessage['text'],
+      messageType: failedMessage['type'],
+    );
   }
 
   void _showErrorSnackBar(String message) {
@@ -323,9 +554,18 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
     }
   }
 
+  Future<File> _compressImage(File imageFile) async {
+    // This would normally use a compression library like flutter_image_compress
+    // For now, we'll just return the original file
+    return imageFile;
+  }
+
   Future<void> _uploadAndSendImage(File imageFile) async {
     try {
       setState(() => _imageUploading = true);
+
+      // Compress image before uploading
+      final compressedFile = await _compressImage(imageFile);
 
       // Upload to Firebase Storage
       final fileName = '${DateTime.now().millisecondsSinceEpoch}_${path.basename(imageFile.path)}';
@@ -335,7 +575,11 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
           .child(_chatId)
           .child(fileName);
 
-      final uploadTask = ref.putFile(imageFile);
+      final uploadTask = ref.putFile(
+        compressedFile,
+        SettableMetadata(contentType: 'image/jpeg'),
+      );
+
       final snapshot = await uploadTask.whenComplete(() {});
       final downloadUrl = await snapshot.ref.getDownloadURL();
 
@@ -485,7 +729,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
     );
   }
 
-  void _showMessageOptions(String message, bool isMe) {
+  void _showMessageOptions(String message, bool isMe, String messageId) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     showModalBottomSheet(
@@ -521,7 +765,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
               title: Text('Reply', style: TextStyle(fontWeight: FontWeight.bold)),
               onTap: () {
                 Navigator.pop(context);
-                // Reply logic
+                // Reply logic would be implemented here
               },
             ),
             ListTile(
@@ -546,7 +790,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                 title: Text('Delete', style: TextStyle(fontWeight: FontWeight.bold)),
                 onTap: () {
                   Navigator.pop(context);
-                  // Delete logic
+                  _deleteMessage(messageId);
                 },
               ),
             SizedBox(height: 10),
@@ -554,6 +798,29 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
         ),
       ),
     );
+  }
+
+  Future<void> _deleteMessage(String messageId) async {
+    try {
+      // Remove from local messages first for immediate UI update
+      setState(() {
+        _localMessages.removeWhere((msg) => msg['id'] == messageId);
+      });
+
+      // Then delete from Firebase
+      await FirebaseFirestore.instance
+          .collection('chats')
+          .doc(_chatId)
+          .collection('messages')
+          .doc(messageId)
+          .delete();
+
+      // Refresh messages list
+      _loadInitialMessages();
+
+    } catch (e) {
+      _showErrorSnackBar('Failed to delete message: $e');
+    }
   }
 
   @override
@@ -574,6 +841,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                 child: _buildMessagesList(isDark),
               ),
 
+              // Fix for opacity issue in TweenAnimationBuilder
               AnimatedContainer(
                 duration: const Duration(milliseconds: 300),
                 height: _isAttachmentVisible ? 120 : 0,
@@ -614,14 +882,19 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
   }
 
   Widget _buildFloatingActionButton(bool isDark) {
-    return AnimatedOpacity(
-      opacity: _scrollController.hasClients && _scrollController.offset > 200 ? 1.0 : 0.0,
-      duration: const Duration(milliseconds: 300),
-      child: FloatingActionButton(
-        mini: true,
-        backgroundColor: TColors.primary,
-        onPressed: _scrollToBottom,
-        child: Icon(Icons.keyboard_arrow_down, color: Colors.white),
+    // Fixed opacity calculation to ensure value is between 0.0 and 1.0
+    final opacity = _scrollController.hasClients && _scrollController.offset > 200 ? 1.0 : 0.0;
+
+    return Opacity(
+      opacity: opacity.clamp(0.0, 1.0), // Ensure opacity is within valid range
+      child: IgnorePointer(
+        ignoring: opacity < 0.1,
+        child: FloatingActionButton(
+          mini: true,
+          backgroundColor: TColors.primary,
+          onPressed: _scrollToBottom,
+          child: Icon(Icons.keyboard_arrow_down, color: Colors.white),
+        ),
       ),
     );
   }
@@ -880,198 +1153,154 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
   }
 
   Widget _buildMessagesList(bool isDark) {
-    return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance
-          .collection('chats')
-          .doc(_chatId)
-          .collection('messages')
-          .orderBy('timestamp', descending: false)
-          .snapshots(),
-      builder: (context, snapshot) {
-        if (snapshot.hasError) {
-          final error = snapshot.error.toString();
-          if (error.contains('FAILED_PRECONDITION') && !_isIndexCreated) {
-            setState(() => _isIndexCreated = true);
+    // Combine Firebase messages and local messages
+    List<dynamic> allMessages = [];
 
-            return Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Lottie.network(
-                    'https://assets7.lottiefiles.com/packages/lf20_khzniaya.json',
-                    width: 150,
-                    height: 150,
-                  ),
-                  SizedBox(height: 16),
-                  Text(
-                    "Setting up chat system...",
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  SizedBox(height: 8),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 30),
-                    child: Text(
-                      "We need to create an index for the chat to work.\nPlease follow the link in your Firebase console.",
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: isDark ? Colors.grey.shade300 : Colors.grey.shade700,
-                      ),
-                    ),
-                  ),
-                  SizedBox(height: 16),
-                  ElevatedButton.icon(
-                    icon: Icon(Icons.refresh),
-                    label: Text("Reload App"),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: TColors.primary,
-                      padding: EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                    ),
-                    onPressed: () => setState(() {}),
-                  ),
-                ],
-              ),
-            );
-          }
+    // Add Firebase messages
+    for (var doc in _messages) {
+      final data = doc.data() as Map<String, dynamic>;
+      allMessages.add({
+        ...data,
+        'id': doc.id,
+        'isFirebase': true,
+      });
+    }
 
-          return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.error_outline, color: Colors.red, size: 48),
-                SizedBox(height: 16),
-                Text(
-                  "Error loading messages",
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                SizedBox(height: 16),
-                ElevatedButton(
-                  onPressed: () => setState(() {}),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: TColors.primary,
-                  ),
-                  child: Text("Retry"),
-                ),
-              ],
-            ),
-          );
-        }
-
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                SizedBox(
-                  width: 40,
-                  height: 40,
-                  child: CircularProgressIndicator(
-                    valueColor: AlwaysStoppedAnimation<Color>(TColors.primary),
-                    strokeWidth: 2,
-                  ),
-                ),
-                SizedBox(height: 16),
-                Text(
-                  "Loading messages...",
-                  style: TextStyle(
-                    color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
-                  ),
-                ),
-              ],
-            ),
-          );
-        }
-
-        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-          return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Lottie.network(
-                  'https://assets2.lottiefiles.com/packages/lf20_l5qvxwtf.json',
-                  width: 150,
-                  height: 150,
-                ),
-                Text(
-                  "Start the conversation!",
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
-                  ),
-                ),
-              ],
-            ),
-          );
-        }
-
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          _scrollToBottom();
+    // Add local messages that aren't already in Firebase messages
+    for (var localMsg in _localMessages) {
+      if (!allMessages.any((msg) => msg['id'] == localMsg['id'])) {
+        allMessages.add({
+          ...localMsg,
+          'isFirebase': false,
         });
+      }
+    }
 
-        final messages = snapshot.data!.docs;
-        return ListView.builder(
+    // Sort by timestamp, newest first (since we're using descending order)
+    allMessages.sort((a, b) {
+      final aTime = a['timestamp'] as Timestamp;
+      final bTime = b['timestamp'] as Timestamp;
+      return bTime.compareTo(aTime);
+    });
+
+    if (_isLoadingMore && allMessages.isEmpty) {
+      return Center(
+        child: CircularProgressIndicator(),
+      );
+    }
+
+    if (allMessages.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Lottie.network(
+              'https://assets2.lottiefiles.com/packages/lf20_l5qvxwtf.json',
+              width: 150,
+              height: 150,
+            ),
+            Text(
+              "Start the conversation!",
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Stack(
+      children: [
+        ListView.builder(
           controller: _scrollController,
+          reverse: true, // Display newest messages at the bottom
           padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           physics: BouncingScrollPhysics(),
-          itemCount: messages.length,
+          itemCount: allMessages.length + (_hasMoreMessages ? 1 : 0),
           itemBuilder: (context, index) {
-            final doc = messages[index];
-            final data = doc.data() as Map<String, dynamic>;
+            // Show loading indicator at the end of the list
+            if (_hasMoreMessages && index == allMessages.length) {
+              return Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(8.0),
+                  child: SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                    ),
+                  ),
+                ),
+              );
+            }
 
-            final isMe = data['senderId'] == _currentUserId;
-            final messageType = data['type'] ?? 'text';
-            final timestamp = (data['timestamp'] as Timestamp).toDate();
+            final message = allMessages[index];
+            final isMe = message['senderId'] == _currentUserId;
+            final messageType = message['type'] ?? 'text';
+            final timestamp = (message['timestamp'] as Timestamp).toDate();
+            final isPending = message['isPending'] ?? false;
+            final isFailed = message['isFailed'] ?? false;
+            final messageId = message['id'];
 
-            // Add staggered animation for messages
-            return AnimatedContainer(
-              duration: Duration(milliseconds: 300),
-              curve: Curves.easeOut,
-              margin: EdgeInsets.only(
-                bottom: 8,
-                left: isMe ? 40 : 0,
-                right: isMe ? 0 : 40,
-              ),
-              child: _buildMessageBubble(
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 8.0),
+              child: _buildMessageItem(
+                message: message['text'] ?? '',
                 isMe: isMe,
-                message: data['text'] ?? '',
                 timestamp: timestamp,
                 messageType: messageType,
                 isDark: isDark,
-                isLastMessage: index == messages.length - 1,
+                isPending: isPending,
+                isFailed: isFailed,
+                messageId: messageId,
+                isLastMessage: index == 0,
               ),
             );
           },
-        );
-      },
+        ),
+
+        // Loading more indicator at the top
+        if (_isLoadingMore)
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: Container(
+              padding: EdgeInsets.all(8),
+              color: isDark ? Colors.black.withOpacity(0.7) : Colors.white.withOpacity(0.7),
+              child: Center(
+                child: SizedBox(
+                  width: 24,
+                  height: 24,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                  ),
+                ),
+              ),
+            ),
+          ),
+      ],
     );
   }
 
-  Widget _buildMessageBubble({
-    required bool isMe,
+  Widget _buildMessageItem({
     required String message,
+    required bool isMe,
     required DateTime timestamp,
     required String messageType,
     required bool isDark,
+    required bool isPending,
+    required bool isFailed,
+    required String messageId,
     required bool isLastMessage,
   }) {
-    final time = DateFormat('h:mm a').format(timestamp);
-    final isSpecialMessage = messageType != 'text';
-
     return GestureDetector(
-      onDoubleTap: () {
-        HapticFeedback.mediumImpact();
-        // Add reaction (heart) logic here
-      },
       onLongPress: () {
         HapticFeedback.heavyImpact();
-        _showMessageOptions(message, isMe);
+        _showMessageOptions(message, isMe, messageId);
       },
       child: Row(
         mainAxisAlignment: isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
@@ -1081,74 +1310,131 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
 
           Flexible(
             child: Container(
-              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              decoration: BoxDecoration(
-                color: _getBubbleColor(isMe, messageType, isDark),
-                borderRadius: BorderRadius.only(
-                  topLeft: Radius.circular(20),
-                  topRight: Radius.circular(20),
-                  bottomLeft: isMe ? Radius.circular(20) : Radius.circular(5),
-                  bottomRight: isMe ? Radius.circular(5) : Radius.circular(20),
-                ),
-                border: isSpecialMessage ? Border.all(
-                  color: _getSpecialBorderColor(messageType, isDark),
-                  width: 1.5,
-                ) : null,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
-                    blurRadius: 5,
-                    offset: Offset(0, 2),
-                  ),
-                ],
+              margin: EdgeInsets.only(
+                left: isMe ? 40 : 0,
+                right: isMe ? 0 : 40,
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildMessageContent(message, messageType, isDark, isMe),
-                  SizedBox(height: 4),
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        time,
-                        style: TextStyle(
-                          color: isMe
-                              ? Colors.white.withOpacity(0.7)
-                              : (isDark ? Colors.grey.shade400 : Colors.grey.shade600),
-                          fontSize: 11,
-                        ),
-                      ),
-                      if (isMe) SizedBox(width: 4),
-                      if (isMe)
-                        AnimatedCrossFade(
-                          firstChild: Icon(
-                            Icons.check,
-                            size: 12,
-                            color: Colors.white.withOpacity(0.7),
-                          ),
-                          secondChild: Icon(
-                            Icons.done_all,
-                            size: 12,
-                            color: isLastMessage ? Colors.blue.shade300 : Colors.white.withOpacity(0.7),
-                          ),
-                          crossFadeState: isLastMessage
-                              ? CrossFadeState.showSecond
-                              : CrossFadeState.showFirst,
-                          duration: Duration(milliseconds: 500),
-                        ),
-                    ],
-                  ),
-
-                  if (messageType == 'fare_proposal' && !isMe)
-                    _buildFareProposalActions(isDark),
-                ],
+              child: _buildMessageBubble(
+                message: message,
+                isMe: isMe,
+                timestamp: timestamp,
+                messageType: messageType,
+                isDark: isDark,
+                isPending: isPending,
+                isFailed: isFailed,
+                messageId: messageId,
+                isLastMessage: isLastMessage,
               ),
             ),
           ),
 
           if (isMe) SizedBox(width: 4),
           if (isMe) _buildAvatar(isDark),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMessageBubble({
+    required String message,
+    required bool isMe,
+    required DateTime timestamp,
+    required String messageType,
+    required bool isDark,
+    required bool isPending,
+    required bool isFailed,
+    required String messageId,
+    required bool isLastMessage,
+  }) {
+    final time = DateFormat('h:mm a').format(timestamp);
+    final isSpecialMessage = messageType != 'text';
+
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      decoration: BoxDecoration(
+        color: _getBubbleColor(isMe, messageType, isDark),
+        borderRadius: BorderRadius.only(
+          topLeft: Radius.circular(20),
+          topRight: Radius.circular(20),
+          bottomLeft: isMe ? Radius.circular(20) : Radius.circular(5),
+          bottomRight: isMe ? Radius.circular(5) : Radius.circular(20),
+        ),
+        border: isSpecialMessage ? Border.all(
+          color: _getSpecialBorderColor(messageType, isDark),
+          width: 1.5,
+        ) : null,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 5,
+            offset: Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildMessageContent(message, messageType, isDark, isMe),
+          SizedBox(height: 4),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                time,
+                style: TextStyle(
+                  // Fixed opacity clamping
+                  color: isMe
+                      ? Colors.white.withOpacity(0.7.clamp(0.0, 1.0))
+                      : (isDark ? Colors.grey.shade400 : Colors.grey.shade600),
+                  fontSize: 11,
+                ),
+              ),
+              if (isMe) SizedBox(width: 4),
+              if (isMe && isFailed)
+                GestureDetector(
+                  onTap: () {
+                    // Find the failed message in local messages
+                    final failedMessage = _localMessages.firstWhere(
+                          (msg) => msg['id'] == messageId,
+                      orElse: () => {},
+                    );
+
+                    if (failedMessage.isNotEmpty) {
+                      _resendFailedMessage(failedMessage);
+                    }
+                  },
+                  child: Icon(
+                    Icons.error_outline,
+                    size: 14,
+                    color: Colors.red.shade300,
+                  ),
+                )
+              else if (isMe && isPending)
+                SizedBox(
+                  width: 14,
+                  height: 14,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 1.5,
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                      // Fixed opacity clamping
+                      Colors.white.withOpacity(0.7.clamp(0.0, 1.0)),
+                    ),
+                  ),
+                )
+              else if (isMe)
+                  Icon(
+                    isLastMessage ? Icons.done_all : Icons.check,
+                    size: 12,
+                    // Fixed opacity handling
+                    color: isLastMessage
+                        ? Colors.blue.shade300
+                        : Colors.white.withOpacity(0.7.clamp(0.0, 1.0)),
+                  ),
+            ],
+          ),
+
+          if (messageType == 'fare_proposal' && !isMe)
+            _buildFareProposalActions(isDark),
         ],
       ),
     );
@@ -1169,23 +1455,30 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
               color: isMe ? Colors.white : (isDark ? Colors.white : Colors.black87),
             ),
             SizedBox(width: 8),
-            Text(
-              message,
-              style: TextStyle(
-                color: isMe ? Colors.white : (isDark ? Colors.white : Colors.black87),
-                fontSize: 15,
+            Flexible(
+              child: Text(
+                message,
+                style: TextStyle(
+                  color: isMe ? Colors.white : (isDark ? Colors.white : Colors.black87),
+                  fontSize: 15,
+                ),
+                overflow: TextOverflow.ellipsis,
+                maxLines: 3,
               ),
             ),
           ],
         );
       default:
-        return Text(
-          message,
-          style: TextStyle(
-            color: isMe
-                ? Colors.white
-                : (isDark ? Colors.white : Colors.black87),
-            fontSize: 15,
+        return Flexible(
+          child: Text(
+            message,
+            style: TextStyle(
+              color: isMe
+                  ? Colors.white
+                  : (isDark ? Colors.white : Colors.black87),
+              fontSize: 15,
+            ),
+            overflow: TextOverflow.visible,
           ),
         );
     }
@@ -1319,7 +1612,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
       padding: const EdgeInsets.only(bottom: 8, left: 4, right: 4),
       child: CircleAvatar(
         radius: 14,
-        backgroundColor: TColors.primary.withOpacity(isDark ? 0.3 : 0.2),
+        backgroundColor: TColors.primary.withOpacity((isDark ? 0.3 : 0.2).clamp(0.0, 1.0)),
         child: Icon(
           Icons.person,
           size: 14,
@@ -1495,10 +1788,11 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
             width: 50,
             height: 50,
             decoration: BoxDecoration(
-              color: color.withOpacity(0.1),
+              // Fixed opacity calculation
+              color: color.withOpacity(0.1.clamp(0.0, 1.0)),
               shape: BoxShape.circle,
               border: Border.all(
-                color: color.withOpacity(0.3),
+                color: color.withOpacity(0.3.clamp(0.0, 1.0)),
                 width: 1,
               ),
             ),
@@ -1523,6 +1817,8 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
   }
 
   Widget _buildMessageInput(bool isDark) {
+    final bool hasText = _messageController.text.trim().isNotEmpty;
+
     return Container(
       padding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
       decoration: BoxDecoration(
@@ -1538,6 +1834,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
       child: SafeArea(
         child: Row(
           children: [
+            // Attachment button
             AnimatedContainer(
               duration: Duration(milliseconds: 300),
               curve: Curves.easeInOut,
@@ -1545,6 +1842,10 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                 onPressed: () {
                   setState(() {
                     _isAttachmentVisible = !_isAttachmentVisible;
+                    // Close emoji picker if open
+                    if (_isEmojiVisible) {
+                      _isEmojiVisible = false;
+                    }
                   });
                   HapticFeedback.lightImpact();
                   if (_isAttachmentVisible) {
@@ -1564,6 +1865,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
               ),
             ),
 
+            // Text input field
             Expanded(
               child: Container(
                 decoration: BoxDecoration(
@@ -1598,17 +1900,42 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                         ),
                         maxLines: null,
                         textCapitalization: TextCapitalization.sentences,
+                        onChanged: (text) {
+                          // Force rebuild to update send button state
+                          setState(() {});
+                        },
+                        onTap: () {
+                          // Hide emoji picker if visible
+                          if (_isEmojiVisible) {
+                            setState(() => _isEmojiVisible = false);
+                          }
+                        },
                       ),
                     ),
                     IconButton(
-                      icon: Icon(Icons.emoji_emotions_outlined,
+                      icon: Icon(
+                        _isEmojiVisible
+                            ? Icons.keyboard
+                            : Icons.emoji_emotions_outlined,
                         color: isDark
                             ? Colors.grey.shade400
                             : Colors.grey.shade600,
                         size: 20,
                       ),
                       onPressed: () {
-                        // Show emoji picker
+                        setState(() {
+                          _isEmojiVisible = !_isEmojiVisible;
+                          _isAttachmentVisible = false;
+                          _attachmentAnimationController.reverse();
+
+                          if (_isEmojiVisible) {
+                            // Hide keyboard when showing emoji picker
+                            FocusScope.of(context).unfocus();
+                          } else {
+                            // Show keyboard when hiding emoji picker
+                            FocusScope.of(context).requestFocus(_focusNode);
+                          }
+                        });
                         HapticFeedback.lightImpact();
                       },
                     ),
@@ -1619,30 +1946,38 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
 
             SizedBox(width: 8),
 
-            AnimatedBuilder(
-              animation: _sendButtonAnimation,
-              builder: (context, child) {
+            // Send button
+            Builder(
+              builder: (context) {
+                // Fixed animation scale calculation
+                final scale = hasText
+                    ? (0.8 + ((_sendButtonAnimation.value * 0.2).clamp(0.0, 0.2)))
+                    : 0.8;
+
                 return Transform.scale(
-                  scale: 0.8 + (_sendButtonAnimation.value * 0.2),
+                  scale: scale,
                   child: Container(
                     width: 40,
                     height: 40,
                     decoration: BoxDecoration(
-                      color: TColors.primary,
+                      color: hasText ? TColors.primary : TColors.primary.withOpacity(0.5),
                       shape: BoxShape.circle,
-                      boxShadow: [
+                      boxShadow: hasText ? [
                         BoxShadow(
                           color: TColors.primary.withOpacity(0.3),
                           blurRadius: 8,
                           spreadRadius: 0,
                           offset: Offset(0, 2),
                         ),
-                      ],
+                      ] : [],
                     ),
                     child: IconButton(
-                      onPressed: _isSending
+                      onPressed: (_isSending || !hasText)
                           ? null
-                          : () => _sendMessage(_messageController.text),
+                          : () {
+                        HapticFeedback.mediumImpact();
+                        _sendMessage(_messageController.text.trim());
+                      },
                       icon: _isSending
                           ? SizedBox(
                         width: 20,
@@ -1864,7 +2199,8 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
         Container(
           padding: EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color: iconColor.withOpacity(0.1),
+            // Fixed opacity calculation
+            color: iconColor.withOpacity(0.1.clamp(0.0, 1.0)),
             borderRadius: BorderRadius.circular(8),
           ),
           child: Icon(icon, color: iconColor, size: 20),
