@@ -64,7 +64,7 @@ cd BUBuddy
 
 flutter pub get
 flutter run
-
+```
 ![AP](https://github.com/user-attachments/assets/31e4637b-5c3f-4603-bd55-4935fc679aa6)
 
 ![image](https://github.com/user-attachments/assets/513c2357-7052-404c-abcb-71fcf6484b7e)
