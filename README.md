@@ -1,4 +1,4 @@
-
+![image](https://github.com/user-attachments/assets/249d25fe-23f4-43e9-abaa-bf6f2937adac)
 # BU Buddy 🚗💨
 
 BU Buddy is a carpooling app designed specifically for university students to help them share rides, save costs, and reduce their carbon footprint. Whether you're looking for a ride to campus or offering a ride to fellow students, BU Buddy makes it easy and safe to connect.
@@ -65,6 +65,6 @@ cd BUBuddy
 flutter pub get
 flutter run
 ```
-![image](https://github.com/user-attachments/assets/c9bf6690-a22b-4df8-b2e6-9c136c41b612)   ![image](https://github.com/user-attachments/assets/513c2357-7052-404c-abcb-71fcf6484b7e)
+![image](https://github.com/user-attachments/assets/67f290b3-3f1a-45a3-8a69-6d74b079ae67)   ![image](https://github.com/user-attachments/assets/513c2357-7052-404c-abcb-71fcf6484b7e)
 
 ![image](https://github.com/user-attachments/assets/de65b07f-f70c-4ed4-a7d9-da4ece8e15d7)    ![image](https://github.com/user-attachments/assets/d3a94a72-e461-4c2b-8863-8575f1ad4291)
