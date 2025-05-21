@@ -65,6 +65,5 @@ cd BUBuddy
 flutter pub get
 flutter run
 ```
-![image](https://github.com/user-attachments/assets/67f290b3-3f1a-45a3-8a69-6d74b079ae67)   ![image](https://github.com/user-attachments/assets/513c2357-7052-404c-abcb-71fcf6484b7e)
+![Uploading image.png…]()
 
-![image](https://github.com/user-attachments/assets/de65b07f-f70c-4ed4-a7d9-da4ece8e15d7)    ![image](https://github.com/user-attachments/assets/d3a94a72-e461-4c2b-8863-8575f1ad4291)
